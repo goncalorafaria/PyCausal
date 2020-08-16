@@ -18,5 +18,6 @@ Y = math.add(NyZ, math.exp(math.square(X))).mark("Y")
 
 model.draw()
 ```
-#### Output
+with the corresponding graphical causal model, 
+
 ![alt text](https://github.com/goncalorafaria/PyCausal/blob/master/cimg.png)
