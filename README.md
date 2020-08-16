@@ -9,8 +9,14 @@ import ops as math
 model = SCM("Simple Causal Graph")
 
 X = Variable("X", tfp.distributions.Normal(loc=0,scale=1))
+Z = Variable("Z", tfp.distributions.Normal(loc=0,scale=1))
+
+Ny = HiddenVariable("Ny", tfp.distributions.Normal(loc=0,scale=1))
+
+NyZ = math.multiply(Ny,Z)
+
 Y = math.exp( math.square(X) ).mark("Y")
-Z = math.add(X, Y).mark("Z")
+Y = math.add(NyZ, math.exp(math.square(X))).mark("Y")
 
 model.draw()
 ```
