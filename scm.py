@@ -9,6 +9,11 @@ def Variable(name, dist):
     SCM.model.addVariable(arv)
     return arv
 
+def HiddenVariable(name,dist):
+    arv = AncestorRandomVariable(name, dist, observed=False)
+    SCM.model.addVariable(arv)
+    return arv
+
 class SCM(Named):
 
     def __init__(self,
@@ -47,13 +52,13 @@ class SCM(Named):
 
         rv._mark()
         del self.nodes[rv.name]
-        rv.name = "RV/" + name
+        rv.name = "M/" + name
         self.addAuxVariable(rv)
 
         return rv
 
     def draw_complete(self):
-        plt.figure()
+        plt.figure(figsize=(12,8))
         plt.title(self.name)
         G = nx.DiGraph()
 
@@ -64,7 +69,7 @@ class SCM(Named):
             for to in n.outbound :
                 G.add_edge(n.name,to.name)
 
-        nx.draw(G,with_labels=True, arrows=True, node_size=1400)
+        nx.draw(G,with_labels=True, arrows=True, node_size=1200)
 
         plt.savefig("img.png")
 
@@ -80,10 +85,10 @@ class SCM(Named):
         return l
 
     def draw(self):
-        plt.figure()
+        plt.figure(figsize=(12,8))
         plt.title(self.uname())
         G = self.build_causal_graph()
-        nx.draw(G,with_labels=True, arrows=True, node_size=1400)
+        nx.draw(G,with_labels=True, arrows=True, node_size=1200)
         plt.savefig("cimg.png")
 
 
@@ -93,7 +98,9 @@ class SCM(Named):
         q = queue.Queue()
 
         for n in self.ancestors:
-            q.put(self.nodes[n])
+            node = self.nodes[n]
+            if node.observed :
+                q.put(node)
 
         for n in self.nodes.values():
             if n.observed :
@@ -131,6 +138,10 @@ class RandomVariable(Named):
     def _mark(self):
         self.observed = True
 
+    def mark(self):
+        self._mark()
+        return self
+
     def reach(self):
         l= []
 
@@ -158,9 +169,10 @@ class AuxiliaryVariable(RandomVariable):
 class AncestorRandomVariable(RandomVariable):
     def __init__(self,
                  name,
-                 sampler):
+                 sampler,
+                 observed=True):
         super(AncestorRandomVariable,self).__init__(name,
-                                            True)
+                                            observed)
         self.sampler=sampler
 
     def sample(self, sample_shape=()):
