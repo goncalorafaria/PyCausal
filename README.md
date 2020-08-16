@@ -1,6 +1,10 @@
 
 ### Example
 
+![alt text](https://github.com/goncalorafaria/PyCausal/blob/master/eq.PNG)
+
+where $ N_Z, N_Y, N_X $ is the standard normal.
+#### Code
 ```python
 from scm import *
 import tensorflow_probability as tfp
