@@ -1,5 +1,5 @@
 from scm import *
-import tensorflow as tf
+import numpy as np
 
 scm = None
 
@@ -36,8 +36,8 @@ class UnitaryOperation(Operation):
 
         return nrvar
 
-    def _apply(self, tensor):
-        return self.function(tensor)
+    def _apply(self, tensors):
+        return self.function(tensors[0])
 
 class BinaryOperation(Operation):
     def __init__(self, name, function):
@@ -59,71 +59,81 @@ class BinaryOperation(Operation):
         scm.addAuxVariable(nrvar)
         return nrvar
 
-    def _apply(self, tensor1, tensor2):
-        return self.function(tensor1, tensor2)
+    def _apply(self, tensors):
+        return self.function(tensors[0], tensors[1])
 
 class UOneArgOperation(Operation):
     def __init__(self,name,function, arg):
         super(UOneArgOperation, self).__init__(name,function)
         self.arg=arg
 
-    def _apply(self, tensor):
-        return self.function(tensor,self.arg)
+    def _apply(self, tensors):
+        return self.function(tensors[0],self.arg)
 
 ### examples of operations
 ## unitary
 def exp(nrv):
-    op = UnitaryOperation("exp",tf.math.exp)
+    op = UnitaryOperation("exp",np.exp)
     return op.__call__(SCM.model, nrv)
 
 def log(nrv):
-    op = UnitaryOperation("log",tf.math.log)
+    op = UnitaryOperation("log",np.log)
     return op.__call__(SCM.model, nrv)
 
 def negative(nrv):
-    op = UnitaryOperation("neg",tf.math.negative)
+    op = UnitaryOperation("neg",np.negative)
     return op.__call__(SCM.model, nrv)
 
 def sqrt(nrv):
-    op = UnitaryOperation("sqrt",tf.math.sqrt)
+    op = UnitaryOperation("sqrt",np.sqrt)
     return op.__call__(SCM.model, nrv)
 
 def square(nrv):
-    op = UnitaryOperation("square",tf.math.square)
+    op = UnitaryOperation("square",np.square)
     return op.__call__(SCM.model, nrv)
 
 def power(nrv, n):
     if isinstance(n, RandomVariable) :
-        op = BinaryOperation("pow", tf.math.pow)
+        op = BinaryOperation("pow", np.power)
         return op.__call__(SCM.model, nrv, n)
     else:
-        op = UOneArgOperation("power",tf.math.pow)
+        op = UOneArgOperation("power", np.power, n)
         return op.__call__(SCM.model,nrv)
 
 def sin(nrv):
-    op = UnitaryOperation("sin",tf.math.sin)
+    op = UnitaryOperation("sin",np.sin)
     return op.__call__(SCM.model, nrv)
 
 def cos(nrv):
-    op = UnitaryOperation("cos",tf.math.cos)
+    op = UnitaryOperation("cos",np.cos)
     return op.__call__(SCM.model, nrv)
 
 def tan(nrv):
-    op = UnitaryOperation("tan",tf.math.tan)
+    op = UnitaryOperation("tan",np.tan)
     return op.__call__(SCM.model, nrv)
+
+def scale(a,b):
+    if isinstance(a, RandomVariable):
+        rv = a
+        s = b
+    else:
+        rv = b
+        s = a
+    op =  UOneArgOperation("scale", np.multiply, s)
+    return op.__call__(SCM.model, rv)
 
 ## binary
 def add(nrv, nrv2):
-    op = BinaryOperation("add", tf.math.add)
+    op = BinaryOperation("add", np.add)
     return op.__call__(SCM.model, nrv, nrv2)
 
 def subtract(nrv, nrv2):
     return add(nrv, negative(nrv2))
 
 def multiply(nrv, nrv2):
-    op = BinaryOperation("mul", tf.math.multiply)
+    op = BinaryOperation("mul", np.multiply)
     return op.__call__(SCM.model, nrv, nrv2)
 
 def divide(nrv, nrv2):
-    op = BinaryOperation("div", tf.math.divide)
+    op = BinaryOperation("div", np.divide)
     return op.__call__(SCM.model, nrv, nrv2)

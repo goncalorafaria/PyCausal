@@ -1,8 +1,8 @@
-from tensorflow_probability import distributions as tfd
 from core import *
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
+import numpy as np
 
 def Variable(name, dist):
     arv = AncestorRandomVariable(name, dist)
@@ -84,6 +84,18 @@ class SCM(Named):
 
         return l
 
+    def _sample(self, size):
+        cache = {}
+        for n in self.nodes.values():
+            if not n in cache :
+                cache = n.sampling_cached(cache,size)
+
+        return cache
+
+    def sample(self,size):
+        results = { n[0].uname() : n[1] for n in filter(lambda rv: rv[0].observed , self._sample(size).items()) }
+        return results
+
     def draw(self):
         plt.figure(figsize=(12,8))
         plt.title(self.uname())
@@ -122,6 +134,12 @@ class SCM(Named):
 
         return G
 
+    def getMarked(self):
+        return list(
+            map( lambda x : x.name,
+                filter( lambda x : x.observed ,self.nodes.values())
+            )
+        )
 
 
 class RandomVariable(Named):
@@ -166,6 +184,32 @@ class AuxiliaryVariable(RandomVariable):
     def mark(self, name):
         return SCM.model.mark(name,self)
 
+    def sample(self, size=1):
+        return self.sampling_cached({} ,size)[self]
+
+    def conditional_sampling(self, rvs, size):
+        return self.op._apply(list(map( lambda x : x.conditional_sampling(rvs, size), self.inbound)))
+
+    def sampling_cached( self, rvs, size ):
+        if self in rvs.keys():
+            return rvs
+
+        z = {}
+        z = {**z, **rvs}
+        l=[]
+
+        for n in self.inbound:
+            d = n.sampling_cached(z, size)
+            z = {**z, **d}
+            l.append(z[n])
+
+        r = self.op._apply(l)
+
+        z[self]=r
+
+        return z
+
+
 class AncestorRandomVariable(RandomVariable):
     def __init__(self,
                  name,
@@ -175,14 +219,20 @@ class AncestorRandomVariable(RandomVariable):
                                             observed)
         self.sampler=sampler
 
-    def sample(self, sample_shape=()):
-        return self._sample(sample_shape).numpy()
+    def sample(self, size=1):
+        return self.sampler.rvs(size)
 
-    def _sample(self,
-               sample_shape=()):
+    def conditional_sampling(self, rvs, size):
+        if self in rvs.keys():
+            return np.tile(rvs[self],size)
+        else:
+            return self.sample(size)
 
-        return tfd.Sample(self.sampler,
-                       sample_shape=sample_shape).sample()
-
+    def sampling_cached(self, rvs, size):
+        if self in rvs.keys():
+            return rvs
+        else:
+            r = self.sample(size)
+            return {self:r}
 
 

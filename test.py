@@ -1,16 +1,22 @@
 from scm import *
-import tensorflow_probability as tfp
 import ops as math
+from scipy import stats
 
 model = SCM("Simple Causal Graph")
 
-X = Variable("X", tfp.distributions.Normal(loc=0,scale=1))
-Z = Variable("Z", tfp.distributions.Normal(loc=0,scale=1))
-Ny = HiddenVariable("Ny", tfp.distributions.Normal(loc=0, scale=1))
+X = Variable("X", stats.norm(loc=0,scale=1))
+Z = Variable("Z", stats.norm(loc=0,scale=1))
+Ny = HiddenVariable("Ny", stats.norm(loc=0, scale=1))
 
 NyZ = math.multiply(Ny,Z)
 
-Y = math.add( NyZ, math.exp( math.square(X)) ).mark("Y")
+Y = math.add( NyZ , math.square(X) ).mark("Y")
 
 model.draw()
 model.draw_complete()
+print(Y.sample(30))
+print(Y.conditional_sampling( { X : np.array([0]) },20 ))
+print(Y.sampling_cached({},1))
+print("####################")
+print(model.sample(2))
+
