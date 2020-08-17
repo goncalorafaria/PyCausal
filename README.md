@@ -25,3 +25,11 @@ model.draw()
 with the corresponding graphical causal model, 
 
 ![alt text](https://github.com/goncalorafaria/PyCausal/blob/master/cimg.png)
+
+
+
+#### install :~
+
+python3 setup.py sdist bdist_wheel
+
+

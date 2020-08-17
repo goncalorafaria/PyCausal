@@ -1,4 +1,4 @@
-from core import *
+from .core import *
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
@@ -71,7 +71,7 @@ class SCM(Named):
 
         nx.draw(G,with_labels=True, arrows=True, node_size=1200)
 
-        plt.savefig("img.png")
+        plt.show()
 
     def reach(rv):
         l= []
@@ -101,7 +101,7 @@ class SCM(Named):
         plt.title(self.uname())
         G = self.build_causal_graph()
         nx.draw(G,with_labels=True, arrows=True, node_size=1200)
-        plt.savefig("cimg.png")
+        plt.show()
 
 
     def build_causal_graph(self):
@@ -136,7 +136,7 @@ class SCM(Named):
 
     def getMarked(self):
         return list(
-            map( lambda x : x.name,
+            map( lambda x : x.uname(),
                 filter( lambda x : x.observed ,self.nodes.values())
             )
         )

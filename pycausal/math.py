@@ -1,4 +1,4 @@
-from scm import *
+from .scm import *
 import numpy as np
 
 scm = None
@@ -132,6 +132,10 @@ def subtract(nrv, nrv2):
 
 def multiply(nrv, nrv2):
     op = BinaryOperation("mul", np.multiply)
+    return op.__call__(SCM.model, nrv, nrv2)
+
+def matmul(nrv, nrv2):
+    op = BinaryOperation("matmul",np.matmul)
     return op.__call__(SCM.model, nrv, nrv2)
 
 def divide(nrv, nrv2):
