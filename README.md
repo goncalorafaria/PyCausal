@@ -27,7 +27,16 @@ with the corresponding graphical causal model,
 
 ![alt text](https://github.com/goncalorafaria/PyCausal/blob/master/cimg.png)
 
+```python
+model.sample(2)
+```
 
+#### output:
+```
+{'Z': array([0.99181398, 0.02439115]), 
+ 'X': array([-0.07538367,  1.69771261]), 
+ 'Y': array([ 2.64181855, 17.87651557]) }
+```
 
 #### install :~
 //python3 setup.py sdist bdist_wheel
