@@ -47,7 +47,9 @@ model.conditional_sampling({X: np.array([0])},2)
 {'X': array([0, 0]), 
  'Z': array([0.34692997, 0.16893219]),
  'Y': array([1.42016021, 0.86607793]) }
-```
+ ```
+
+We can also sample variables instead of the full model.
 #### install :~
 //python3 setup.py sdist bdist_wheel
 
