@@ -1,4 +1,5 @@
 from pycausal import *
+from pycausal.inference import independence
 from scipy import stats
 
 model = SCM("Simple Causal Graph")
@@ -13,6 +14,17 @@ Y = add(NyZ, exp(square(X))).mark("Y")
 
 model.draw()
 
-#print(model.sample(2))
+print([ v.shape for v in model.sample(42).values()])
 print(model.conditional_sampling({X: np.array([0])},2))
 print(Y.conditional_sampling({X: np.array([0])},2))
+print(model.sample(10)[NyZ])
+
+s = model.sample(200)
+print("are X and Z independent? ")
+print(independence(s[X], s[Z]))
+print(X.independent_of(Z))
+
+
+print("are X and Y independent? ")
+print(independence(s[X], s[Y]))
+print(X.independent_of(Y))
