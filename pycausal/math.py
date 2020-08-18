@@ -62,7 +62,7 @@ class BinaryOperation(Operation):
     def _apply(self, tensors):
         return self.function(tensors[0], tensors[1])
 
-class UOneArgOperation(Operation):
+class UOneArgOperation(UnitaryOperation):
     def __init__(self,name,function, arg):
         super(UOneArgOperation, self).__init__(name,function)
         self.arg=arg
