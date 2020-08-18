@@ -1,3 +1,5 @@
+# PyCausal - Causal Inference and Reasoning in Python
+Package for defining Structural Causal Models and for Structure Identification from data.
 
 ### Example
 
@@ -6,19 +8,18 @@
 where $ N_Z, N_Y, N_X $ is the standard normal.
 #### Code
 ```python
-from scm import *
-import tensorflow_probability as tfp
-import ops as math
+from pycausal import *
+from scipy import stats
 
 model = SCM("Simple Causal Graph")
 
-X = Variable("X", tfp.distributions.Normal(loc=0,scale=1))
-Z = Variable("Z", tfp.distributions.Normal(loc=0,scale=1))
+X = Variable("X", stats.norm(loc=0,scale=1))
+Z = Variable("Z", stats.beta(0.5,0.5))
 
-Ny = HiddenVariable("Ny", tfp.distributions.Normal(loc=0,scale=1))
+Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
 
-NyZ = math.multiply(Ny,Z)
-Y = math.add(NyZ, math.exp(math.square(X))).mark("Y")
+NyZ = multiply(Ny,Z)
+Y = add(NyZ, exp(square(X))).mark("Y")
 
 model.draw()
 ```
@@ -26,10 +27,28 @@ with the corresponding graphical causal model,
 
 ![alt text](https://github.com/goncalorafaria/PyCausal/blob/master/cimg.png)
 
+```python
+model.sample(2)
+```
 
+#### output:
+```
+{'Z': array([0.99181398, 0.02439115]), 
+ 'X': array([-0.07538367,  1.69771261]), 
+ 'Y': array([ 2.64181855, 17.87651557]) }
+```
 
+```python
+model.conditional_sampling({X: np.array([0])},2)
+```
+
+#### output:
+```
+{'X': array([0, 0]), 
+ 'Z': array([0.34692997, 0.16893219]),
+ 'Y': array([1.42016021, 0.86607793]) }
+```
 #### install :~
+//python3 setup.py sdist bdist_wheel
 
-python3 setup.py sdist bdist_wheel
-
-
+pip install .
