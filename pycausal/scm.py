@@ -84,7 +84,7 @@ class SCM(Named):
 
         return l
 
-    def _sample(self, cache ,size):
+    def sample_cached(self, cache ,size):
 
         for n in self.nodes.values():
             if not n in cache :
@@ -93,7 +93,8 @@ class SCM(Named):
         return cache
 
     def sample(self,size):
-        results = { n[0].uname() : n[1] for n in filter(lambda rv: rv[0].observed , self._sample({},size).items()) }
+        results = { n[0].uname() : n[1]
+                   for n in filter(lambda rv: rv[0].observed , self.sample_cached({},size).items()) }
         return results
 
     def conditional_sampling(self, rvs, size):
@@ -104,7 +105,7 @@ class SCM(Named):
             cache[k] = np.tile(v,size)
 
         results = { n[0].uname() : n[1] for n in
-                   filter(lambda rv: rv[0].observed , self._sample(cache,size).items())  }
+                   filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
         return results
 
     def draw(self):
