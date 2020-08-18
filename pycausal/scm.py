@@ -84,8 +84,8 @@ class SCM(Named):
 
         return l
 
-    def _sample(self, size):
-        cache = {}
+    def _sample(self, cache ,size):
+
         for n in self.nodes.values():
             if not n in cache :
                 cache = n.sampling_cached(cache,size)
@@ -93,7 +93,18 @@ class SCM(Named):
         return cache
 
     def sample(self,size):
-        results = { n[0].uname() : n[1] for n in filter(lambda rv: rv[0].observed , self._sample(size).items()) }
+        results = { n[0].uname() : n[1] for n in filter(lambda rv: rv[0].observed , self._sample({},size).items()) }
+        return results
+
+    def conditional_sampling(self, rvs, size):
+
+        cache = {}
+
+        for k, v in rvs.items():
+            cache[k] = np.tile(v,size)
+
+        results = { n[0].uname() : n[1] for n in
+                   filter(lambda rv: rv[0].observed , self._sample(cache,size).items())  }
         return results
 
     def draw(self):
@@ -188,14 +199,19 @@ class AuxiliaryVariable(RandomVariable):
         return self.sampling_cached({} ,size)[self]
 
     def conditional_sampling(self, rvs, size):
-        return self.op._apply(list(map( lambda x : x.conditional_sampling(rvs, size), self.inbound)))
+        cache = {}
+
+        for k, v in rvs.items():
+            cache[k] = np.tile(v,size)
+
+        return self.sampling_cached(cache, size)[self]
 
     def sampling_cached( self, rvs, size ):
         if self in rvs.keys():
             return rvs
-
         z = {}
         z = {**z, **rvs}
+
         l=[]
 
         for n in self.inbound:
@@ -233,6 +249,7 @@ class AncestorRandomVariable(RandomVariable):
             return rvs
         else:
             r = self.sample(size)
-            return {self:r}
+            rvs[self]=r
+            return rvs
 
 
