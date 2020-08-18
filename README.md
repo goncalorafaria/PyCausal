@@ -38,6 +38,16 @@ model.sample(2)
  'Y': array([ 2.64181855, 17.87651557]) }
 ```
 
+```python
+model.conditional_sampling({X: np.array([0])},2)
+```
+
+#### output:
+```
+{'X': array([0, 0]), 
+ 'Z': array([0.34692997, 0.16893219]),
+ 'Y': array([1.42016021, 0.86607793]) }
+```
 #### install :~
 //python3 setup.py sdist bdist_wheel
 
