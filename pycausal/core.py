@@ -10,3 +10,4 @@ class Named:
 
     def uname(self):
         return self.name.split("/")[1]
+

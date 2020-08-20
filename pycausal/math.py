@@ -1,7 +1,7 @@
-from .scm import *
+from .scm import SCM, AuxiliaryVariable, RandomVariable
+from .core import *
 import numpy as np
 
-scm = None
 
 class Operation(Named):
 
@@ -25,10 +25,13 @@ class UnitaryOperation(Operation):
         super(UnitaryOperation, self).__init__(name)
         self.function=function
 
-    def __call__(self, scm, rvar):
-        nrvar = AuxiliaryVariable("transform/"+ self.name + "w/" + rvar.name+"//id:" + str(self),
-                                  self,
-                                  [rvar])
+    def __call__(self, rvar):
+        scm = SCM.model
+        nrvar = AuxiliaryVariable(
+                "transform/"+ self.name + 
+                "w/" + rvar.name+"//id:" + str(self),
+                self,
+                [rvar])
 
         rvar.addChildren([nrvar])
 
@@ -45,8 +48,9 @@ class BinaryOperation(Operation):
         super(BinaryOperation, self).__init__(name)
         self.function = function
 
-    def __call__(self, scm, rvar1, rvar2):
-
+    def __call__(self, rvar1, rvar2):
+        
+        scm = SCM.model
         nrvar = AuxiliaryVariable("combine/"+
                               self.name + "w/" + rvar1.name + "&&" + rvar2.name +
                               "//id:" + str(self),
@@ -74,43 +78,43 @@ class UOneArgOperation(UnitaryOperation):
 ## unitary
 def exp(nrv):
     op = UnitaryOperation("exp",np.exp)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__(nrv)
 
 def log(nrv):
     op = UnitaryOperation("log",np.log)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__(nrv)
 
 def negative(nrv):
     op = UnitaryOperation("neg",np.negative)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__( nrv)
 
 def sqrt(nrv):
     op = UnitaryOperation("sqrt",np.sqrt)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__( nrv)
 
 def square(nrv):
     op = UnitaryOperation("square",np.square)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__( nrv)
 
 def power(nrv, n):
     if isinstance(n, RandomVariable) :
         op = BinaryOperation("pow", np.power)
-        return op.__call__(SCM.model, nrv, n)
+        return op.__call__(nrv, n)
     else:
         op = UOneArgOperation("power", np.power, n)
-        return op.__call__(SCM.model,nrv)
+        return op.__call__(nrv)
 
 def sin(nrv):
     op = UnitaryOperation("sin",np.sin)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__( nrv)
 
 def cos(nrv):
     op = UnitaryOperation("cos",np.cos)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__( nrv)
 
 def tan(nrv):
     op = UnitaryOperation("tan",np.tan)
-    return op.__call__(SCM.model, nrv)
+    return op.__call__( nrv)
 
 def scale(a,b):
     if isinstance(a, RandomVariable):
@@ -120,24 +124,24 @@ def scale(a,b):
         rv = b
         s = a
     op =  UOneArgOperation("scale", np.multiply, s)
-    return op.__call__(SCM.model, rv)
+    return op.__call__( rv)
 
 ## binary
 def add(nrv, nrv2):
     op = BinaryOperation("add", np.add)
-    return op.__call__(SCM.model, nrv, nrv2)
+    return op.__call__( nrv, nrv2)
 
 def subtract(nrv, nrv2):
     return add(nrv, negative(nrv2))
 
 def multiply(nrv, nrv2):
     op = BinaryOperation("mul", np.multiply)
-    return op.__call__(SCM.model, nrv, nrv2)
+    return op.__call__( nrv, nrv2)
 
 def matmul(nrv, nrv2):
     op = BinaryOperation("matmul",np.matmul)
-    return op.__call__(SCM.model, nrv, nrv2)
+    return op.__call__( nrv, nrv2)
 
 def divide(nrv, nrv2):
     op = BinaryOperation("div", np.divide)
-    return op.__call__(SCM.model, nrv, nrv2)
+    return op.__call__( nrv, nrv2)

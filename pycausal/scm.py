@@ -1,5 +1,5 @@
 from .core import *
-from .inference import independence
+from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
@@ -14,6 +14,11 @@ def HiddenVariable(name,dist, shape=[1]):
     arv = AncestorRandomVariable(name, dist, shape, observed=False)
     SCM.model.addVariable(arv)
     return arv
+
+def placeholder(name, shape=[1]):
+    rv = Placeholder(name, shape)
+    SCM.model.addVariable(rv)
+    return rv
 
 class SCM(Named):
 
@@ -269,4 +274,14 @@ class AncestorRandomVariable(RandomVariable):
             rvs[self]=r
             return rvs
 
+class Placeholder(AncestorRandomVariable):
+    def __init__(self,
+                 name,
+                 shape):
+        super(Placeholder, self).__init__(name, None,shape,True)
+
+    
+    def sample(self,size):
+        msg = "Placeholders can not be directly sampled because their distribution is unknown. To sample graphical models with placeholders you have to conditionally sample and determine which values to give to the placeholders "
+        print(msg, err)
 
