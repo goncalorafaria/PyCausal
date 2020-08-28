@@ -1,18 +1,24 @@
 from .core import *
+from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
 import numpy as np
 
-def Variable(name, dist):
-    arv = AncestorRandomVariable(name, dist)
+def Variable(name, dist, shape=[1]):
+    arv = AncestorRandomVariable(name, dist, shape)
     SCM.model.addVariable(arv)
     return arv
 
-def HiddenVariable(name,dist):
-    arv = AncestorRandomVariable(name, dist, observed=False)
+def HiddenVariable(name,dist, shape=[1]):
+    arv = AncestorRandomVariable(name, dist, shape, observed=False)
     SCM.model.addVariable(arv)
     return arv
+
+def placeholder(name, shape=[1]):
+    rv = Placeholder(name, shape)
+    SCM.model.addVariable(rv)
+    return rv
 
 class SCM(Named):
 
@@ -84,16 +90,31 @@ class SCM(Named):
 
         return l
 
-    def _sample(self, size):
-        cache = {}
+    def sample_cached(self, cache ,size):
+
         for n in self.nodes.values():
             if not n in cache :
                 cache = n.sampling_cached(cache,size)
 
         return cache
 
+    def _sample(self,size):
+        results = { n[0].uname() : n[1]
+                   for n in filter(lambda rv: rv[0].observed , self.sample_cached({},size).items()) }
+        return results
+
     def sample(self,size):
-        results = { n[0].uname() : n[1] for n in filter(lambda rv: rv[0].observed , self._sample(size).items()) }
+        return self.sample_cached({}, size)
+
+    def conditional_sampling(self, rvs, size=1):
+
+        cache = {}
+
+        for k, v in rvs.items():
+            cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
+
+        results = { n[0].uname() : n[1] for n in
+                   filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
         return results
 
     def draw(self):
@@ -170,6 +191,16 @@ class RandomVariable(Named):
                 l = l + n.reach()
         return l
 
+    def conditional_independent_of(self, rv, given, size=500, significance=0.05):
+        cache = self.sampling_cached( given, size)
+        cache = rv.sampling_cached(cache, size)
+        me = cache[self]
+        other = cache[rv]
+
+        return independence(me, other, significance)
+
+    def independent_of(self, rv, size=500, significance=0.05):
+        return self.conditional_independent_of(rv,{},size,significance)
 
 class AuxiliaryVariable(RandomVariable):
     def __init__(self,
@@ -187,15 +218,20 @@ class AuxiliaryVariable(RandomVariable):
     def sample(self, size=1):
         return self.sampling_cached({} ,size)[self]
 
-    def conditional_sampling(self, rvs, size):
-        return self.op._apply(list(map( lambda x : x.conditional_sampling(rvs, size), self.inbound)))
+    def conditional_sampling(self, given, size):
+        cache = {}
+
+        for k, v in given.items():
+            cache[k] = np.tile(v.reshape([1]+list(v.shape) ),[size]+len(v.shape)*[1])
+
+        return self.sampling_cached(cache, size)[self]
 
     def sampling_cached( self, rvs, size ):
         if self in rvs.keys():
             return rvs
-
         z = {}
         z = {**z, **rvs}
+
         l=[]
 
         for n in self.inbound:
@@ -214,17 +250,19 @@ class AncestorRandomVariable(RandomVariable):
     def __init__(self,
                  name,
                  sampler,
+                 shape,
                  observed=True):
         super(AncestorRandomVariable,self).__init__(name,
                                             observed)
         self.sampler=sampler
+        self.shape = shape
 
     def sample(self, size=1):
-        return self.sampler.rvs(size)
+        return self.sampler.rvs(size).reshape([size]+self.shape)
 
-    def conditional_sampling(self, rvs, size):
-        if self in rvs.keys():
-            return np.tile(rvs[self],size)
+    def conditional_sampling(self, given, size):
+        if self in given.keys():
+            return np.tile(given[self].reshape([1]+self.shape), [size]+len(self.shape)*[1])
         else:
             return self.sample(size)
 
@@ -233,6 +271,17 @@ class AncestorRandomVariable(RandomVariable):
             return rvs
         else:
             r = self.sample(size)
-            return {self:r}
+            rvs[self]=r
+            return rvs
 
+class Placeholder(AncestorRandomVariable):
+    def __init__(self,
+                 name,
+                 shape):
+        super(Placeholder, self).__init__(name, None,shape,True)
+
+    
+    def sample(self,size):
+        msg = "Placeholders can not be directly sampled because their distribution is unknown. To sample graphical models with placeholders you have to conditionally sample and determine which values to give to the placeholders "
+        print(msg, err)
 

@@ -1,4 +1,5 @@
 from pycausal import *
+from scipy import stats
 
 model = SCM("Test Graph")
 X = Variable("X", stats.norm(loc=10,scale=1))

@@ -106,7 +106,7 @@ class SCM(Named):
     def sample(self,size):
         return self.sample_cached({}, size)
 
-    def conditional_sampling(self, rvs, size):
+    def conditional_sampling(self, rvs, size=1):
 
         cache = {}
 

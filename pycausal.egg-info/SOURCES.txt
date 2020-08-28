@@ -2,11 +2,15 @@ README.md
 setup.py
 pycausal/__init__.py
 pycausal/core.py
+pycausal/inference.py
 pycausal/math.py
 pycausal/scm.py
+pycausal/stats.py
 pycausal.egg-info/PKG-INFO
 pycausal.egg-info/SOURCES.txt
 pycausal.egg-info/dependency_links.txt
 pycausal.egg-info/top_level.txt
 tests/__init__.py
+tests/inference_test.py
+tests/ops_test.py
 tests/test.py

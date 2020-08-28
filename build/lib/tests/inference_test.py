@@ -1,6 +1,8 @@
 from pycausal import *
 from pycausal.inference import binary_causal_discovery, independence, fit_conditional_and_test
 from pycausal.math import UnitaryOperation
+from scipy import stats
+
 
 ## Dificult model.
 

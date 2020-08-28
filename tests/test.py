@@ -1,9 +1,6 @@
 from pycausal import *
-from pycausal.inference import independence
-from scipy import stats
 
 model = SCM("Simple Causal Graph")
-
 X = Variable("X", stats.norm(loc=0,scale=1))
 Z = Variable("Z", stats.beta(0.5,0.5))
 
@@ -21,10 +18,10 @@ print(model.sample(10)[NyZ])
 
 s = model.sample(200)
 print("are X and Z independent? ")
-print(independence(s[X], s[Z]))
+#print(independence(s[X], s[Z]))
 print(X.independent_of(Z))
 
 
 print("are X and Y independent? ")
-print(independence(s[X], s[Y]))
+#print(independence(s[X], s[Y]))
 print(X.independent_of(Y))
