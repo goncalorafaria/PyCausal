@@ -1,6 +1,6 @@
 from pycausal import *
-from pycausal.inference import binary_causal_discovery, independence, fit_conditional_and_test
-from pycausal.math import UnitaryOperation
+#from pycausal.inference import binary_causal_discovery, independence, fit_conditional_and_test
+#from pycausal.math import UnitaryOperation
 
 ## Dificult model.
 
@@ -40,7 +40,7 @@ for i in range(6):
         data = models[j]._sample(trial)
         scm = binary_causal_discovery(data["Y"],data["X"],"Y","X")
         
-        print(scm)
+        #print(scm)
        
         if j == 0:
             if scm is None:
