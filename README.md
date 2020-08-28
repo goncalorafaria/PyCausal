@@ -9,7 +9,6 @@ where $ N_Z, N_Y, N_X $ is the standard normal.
 #### Code
 ```python
 from pycausal import *
-from scipy import stats
 
 model = SCM("Simple Causal Graph")
 
