@@ -4,14 +4,15 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import queue
 import numpy as np
+import pickle
 
 def Variable(name, dist, shape=[1]):
-    arv = AncestorRandomVariable(name, dist, shape)
+    arv = SourceRandomVariable(name, dist, shape)
     SCM.model.addVariable(arv)
     return arv
 
 def HiddenVariable(name,dist, shape=[1]):
-    arv = AncestorRandomVariable(name, dist, shape, observed=False)
+    arv = SourceRandomVariable(name, dist, shape, observed=False)
     SCM.model.addVariable(arv)
     return arv
 
@@ -105,6 +106,16 @@ class SCM(Named):
 
     def sample(self,size):
         return self.sample_cached({}, size)
+    
+    def save(self,path):
+        with open(path,"wb") as fp:
+            pickle.dump(self,fp)
+
+    def load(path):
+        with open(path,"rb") as fp:
+            w = pickle.load(fp)
+        
+        return w
 
     def conditional_sampling(self, rvs, size=1):
 
@@ -117,11 +128,11 @@ class SCM(Named):
                    filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
         return results
 
-    def draw(self):
-        plt.figure(figsize=(12,8))
+    def draw(self, figsize=(12,8), node_size=1200 ):
+        plt.figure(figsize=figsize)
         plt.title(self.uname())
         G = self.build_causal_graph()
-        nx.draw(G,with_labels=True, arrows=True, node_size=1200)
+        nx.draw(G,with_labels=True, arrows=True, node_size=node_size)
         plt.show()
 
 
@@ -246,13 +257,13 @@ class AuxiliaryVariable(RandomVariable):
         return z
 
 
-class AncestorRandomVariable(RandomVariable):
+class SourceRandomVariable(RandomVariable):##SourceRandomVariable
     def __init__(self,
                  name,
                  sampler,
                  shape,
                  observed=True):
-        super(AncestorRandomVariable,self).__init__(name,
+        super(SourceRandomVariable,self).__init__(name,
                                             observed)
         self.sampler=sampler
         self.shape = shape
@@ -274,7 +285,7 @@ class AncestorRandomVariable(RandomVariable):
             rvs[self]=r
             return rvs
 
-class Placeholder(AncestorRandomVariable):
+class Placeholder(SourceRandomVariable):
     def __init__(self,
                  name,
                  shape):
