@@ -101,7 +101,7 @@ class SCM(Named):
 
     def _sample(self,size):
         results = { n[0].uname() : n[1]
-                   for n in filter(lambda rv: rv[0].observed , self.sample_cached({},size).items()) }
+                   for n in filter(lambda rv: rv[0].observed , self.sample(size).items()) }
         return results
 
     def sample(self,size):
@@ -110,13 +110,16 @@ class SCM(Named):
     def save(self,path):
         with open(path,"wb") as fp:
             pickle.dump(self,fp)
+    
+    def intervene(self, rvs):
+        return InterventionSCM(self,rvs)
 
     def load(path):
         with open(path,"rb") as fp:
             w = pickle.load(fp)
         
         return w
-
+    
     def conditional_sampling(self, rvs, size=1):
 
         cache = {}
@@ -124,8 +127,15 @@ class SCM(Named):
         for k, v in rvs.items():
             cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
 
-        results = { n[0].uname() : n[1] for n in
+        results = { n[0] : n[1] for n in
                    filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
+        return results
+    
+    def _conditional_sampling(self, rvs, size=1):
+        
+        results = { n[0].uname() : n[1] for n in 
+            filter(lambda rv: rv[0].observed , self._conditional_sampling(rvs,size).items())  }
+        
         return results
 
     def draw(self, figsize=(12,8), node_size=1200 ):
@@ -173,6 +183,31 @@ class SCM(Named):
             )
         )
 
+class InterventionSCM(SCM):
+    def __init__(self,
+                 scm,
+                 rvs):
+    
+        super(InterventionSCM, self).__init__(name="I"+scm.uname())
+        self.nodes = scm.nodes
+        self.ancestors = scm.ancestors
+        self.rvs = rvs
+
+    def sample(self,size=1):
+        cache = {}
+        for rv,val in self.rvs.items():
+            if isinstance(rv,RandomVariable):
+                s = val.sample(1)[0]
+                cache[rv] = s
+                cache[val] = s
+            else:
+                cache[rv] =  val
+        
+        return self.conditional_sampling(cache,size) 
+        
+  #  def _sample(self,size=1):
+  #      for i in self.sample().items():
+  #          print(i)
 
 class RandomVariable(Named):
     def __init__(self,

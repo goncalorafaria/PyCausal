@@ -26,6 +26,20 @@ Y = add( square(X), Ny).mark("Y")
 
 #modeleasy.draw()
 
+
+
+## test MDN. 
+
+from pycausal import models
+
+me = models.MDN([1,36],36) 
+
+print(me.fit(modeleasy))
+
+
+
+
+
 #model.draw_complete()
 
 #plt.hist(Z.sample(200),bins=50)

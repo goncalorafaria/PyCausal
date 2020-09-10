@@ -128,8 +128,19 @@ def scale(a,b):
 
 ## binary
 def add(nrv, nrv2):
-    op = BinaryOperation("add", np.add)
-    return op.__call__( nrv, nrv2)
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("add", np.add)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        c = nrv2
+        rv = nrv
+    else:
+        c = nrv
+        rv = nrv2
+    
+    op = UOneArgOperation("addconstant", np.add, c) 
+
+    return op.__call__(rv)
 
 def subtract(nrv, nrv2):
     return add(nrv, negative(nrv2))

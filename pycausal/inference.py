@@ -3,8 +3,10 @@ from .math import UnitaryOperation
 from .scm import *
 from .stats import independence
 
+from copy import deepcopy
+from .models import MDN
 from sklearn.neural_network import MLPRegressor
-
+import torch
 
 def fit_conditional_and_test(X_train, Y_train):
 
@@ -41,3 +43,133 @@ def binary_causal_discovery(X,Y,nameX,nameY,graphname="Sample Graph"):
     Yvar = op(Xvar).mark(dest)
  
     return model
+
+class ProposalSCM():
+    def __init__(self, model, lr):
+        self.omodel = model
+        self.model = deepcopy(model)
+        self.optim = torch.optim.Adam(
+            self.model.parameters(), lr=lr)
+        self.accumulation = torch.zeros((1,1)) 
+        self.lr = lr
+    
+    def copy(self):
+        self.model = deepcopy(self.omodel)
+        self.accumulation = torch.zeros((1,1))
+        self.optim = torch.optim.Adam(
+            self.model.parameters(), lr=self.lr)
+        
+    def step(self,X_train,Y_train):
+        y_h = self.model.forward(X_train)
+        energy = MDN.loss(y_h, Y_train,entropy_reg=True)
+        self.optim.zero_grad()
+        energy.backward()
+        self.optim.step()
+        
+    def evaluate(self,X_train,Y_train):
+        yt_h = self.model.forward(X_train)
+        energy = MDN.loss(yt_h, Y_train,entropy_reg=False)
+        
+        r = energy.detach()
+        self.accumulation += r
+        
+        return r
+    
+    def online_likelihood(self):
+        return self.accumulation
+
+def meta_objective(transfer, 
+         features, 
+         labels, 
+         modelxy, 
+         modelyx, 
+         steps=15,
+         episodes=300,
+         lr = 1e-3,
+         metalr = 1e-2,
+         val=300):
+    
+    tpaths = {}
+    
+    scmxy = ProposalSCM(modelxy,lr)
+    scmyx = ProposalSCM(modelyx,lr)
+    
+    ## setup meta model. 
+    gamma = torch.nn.parameter.Parameter(torch.zeros((1,1)))
+    
+    optimizer = torch.optim.SGD(
+              [ gamma ], lr=metalr)
+    
+    gpath = []
+    
+    for e in range(episodes):
+        ## setup new model
+        scmxy.copy()
+        scmyx.copy()
+     
+        tpaths[e] = []
+        
+        ## prepare dataset
+        dt = transfer._sample(steps+val)
+        
+        Xt_train = torch.tensor(dt[features][steps:], dtype=torch.float32)
+        Yt_train = torch.tensor(dt[labels][steps:], dtype=torch.float32)
+    
+        for i in range(steps):
+
+            smps = transfer._sample(1)
+            X_train = torch.tensor(dt[features][i].reshape(-1,1), dtype=torch.float32)
+            Y_train = torch.tensor(dt[labels][i].reshape(-1,1), dtype=torch.float32)
+            
+            scmxy.step(X_train, Y_train)
+            scmyx.step(Y_train, X_train)
+
+            # eval
+            
+            energyxy = scmxy.evaluate(X_train, Y_train)
+            energyyx = scmyx.evaluate(Y_train, X_train)
+            
+            energy = energyyx - energyxy
+            tpaths[e].append(energy.numpy())
+        
+        
+        pb = torch.nn.Sigmoid()(gamma)
+        
+        regret = pb * scmxy.online_likelihood() + (1 - pb) * scmyx.online_likelihood()
+        
+        optimizer.zero_grad()
+        regret.backward()
+        optimizer.step()
+        
+        tpaths[e] = np.stack(tpaths[e])
+        #lt.plot( tpaths[e], color="red")
+        
+        gpath.append(pb.detach().numpy().ravel())
+    #print(gamma)   
+    return tpaths, gpath
+
+def binary_causal_inference_with_interventions(
+            base, 
+            transfer, 
+            A, 
+            B, 
+            epochs=2000,
+            steps=15, 
+            episodes=100, 
+            lr=1e-3, 
+            metalr=1e-2,
+            val=300):
+    
+    modelxy = MDN([1,36],10)
+    lossxy = modelxy.fit(base, A, B, epoch=epochs)
+
+    modelyx = MDN([1,36],10)
+    lossyx = modelyx.fit(base, B, A, epoch=epochs)
+
+    _, g = meta_objective(transfer,A,B, modelxy, modelyx, 
+                   lr=lr, metalr=metalr, episodes=episodes,
+                   steps=steps)
+
+    return g[-1]
+
+ 
