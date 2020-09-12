@@ -1,7 +1,7 @@
 from .scm import SCM, AuxiliaryVariable, RandomVariable
 from .core import *
 import numpy as np
-
+import sys
 
 class Operation(Named):
 
@@ -40,7 +40,11 @@ class UnitaryOperation(Operation):
         return nrvar
 
     def _apply(self, tensors):
-        return self.function(tensors[0])
+        try:
+            return self.function(tensors[0])
+        except FloatingPointError:
+            print("Numeric error sampling. - " + str(self.function), file=sys.stderr)
+            raise 
 
 class BinaryOperation(Operation):
     def __init__(self, name, function):
@@ -64,7 +68,11 @@ class BinaryOperation(Operation):
         return nrvar
 
     def _apply(self, tensors):
-        return self.function(tensors[0], tensors[1])
+        try:
+            return self.function(tensors[0], tensors[1]) 
+        except FloatingPointError:
+            print("Numeric error sampling. -"+ str(self.function), file=sys.stderr)
+            raise 
 
 class UOneArgOperation(UnitaryOperation):
     def __init__(self,name,function, arg):
@@ -72,7 +80,11 @@ class UOneArgOperation(UnitaryOperation):
         self.arg=arg
 
     def _apply(self, tensors):
-        return self.function(tensors[0],self.arg)
+        try:
+            return self.function(tensors[0],self.arg)
+        except FloatingPointError:
+            print("Numeric error sampling. -" + str(self.function), file=sys.stderr)
+            raise 
 
 ### examples of operations
 ## unitary

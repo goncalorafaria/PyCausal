@@ -61,9 +61,10 @@ class ProposalSCM():
         
     def step(self,X_train,Y_train):
         y_h = self.model.forward(X_train)
-        energy = MDN.loss(y_h, Y_train,entropy_reg=True)
+        energy = MDN.loss(y_h, Y_train,entropy_reg=False)
         self.optim.zero_grad()
         energy.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
         self.optim.step()
         
     def evaluate(self,X_train,Y_train):
@@ -110,16 +111,16 @@ def meta_objective(transfer,
         tpaths[e] = []
         
         ## prepare dataset
-        dt = transfer._sample(steps+val)
+        batch = 1 
+        dt = transfer._sample(steps*batch+val)
         
-        Xt_train = torch.tensor(dt[features][steps:], dtype=torch.float32)
-        Yt_train = torch.tensor(dt[labels][steps:], dtype=torch.float32)
+        Xt_train = torch.tensor(dt[features][steps*batch:], dtype=torch.float32)
+        Yt_train = torch.tensor(dt[labels][steps*batch:], dtype=torch.float32)
     
         for i in range(steps):
 
-            smps = transfer._sample(1)
-            X_train = torch.tensor(dt[features][i].reshape(-1,1), dtype=torch.float32)
-            Y_train = torch.tensor(dt[labels][i].reshape(-1,1), dtype=torch.float32)
+            X_train = torch.tensor(dt[features][i*batch:(i+1)*batch].reshape(-1,1), dtype=torch.float32)
+            Y_train = torch.tensor(dt[labels][i*batch:(i+1)*batch].reshape(-1,1), dtype=torch.float32)
             
             scmxy.step(X_train, Y_train)
             scmyx.step(Y_train, X_train)
@@ -131,7 +132,7 @@ def meta_objective(transfer,
             
             energy = energyyx - energyxy
             tpaths[e].append(energy.numpy())
-        
+         
         
         pb = torch.nn.Sigmoid()(gamma)
         
@@ -142,10 +143,6 @@ def meta_objective(transfer,
         optimizer.step()
         
         tpaths[e] = np.stack(tpaths[e])
-        #lt.plot( tpaths[e], color="red")
-        
-        gpath.append(pb.detach().numpy().ravel())
-    #print(gamma)   
     return tpaths, gpath
 
 def binary_causal_inference_with_interventions(
