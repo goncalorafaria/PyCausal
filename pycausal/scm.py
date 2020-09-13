@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import queue
 import numpy as np
 import pickle
+import sys
 
 def Variable(name, dist, shape=[1]):
     arv = SourceRandomVariable(name, dist, shape)
@@ -222,7 +223,28 @@ class RandomVariable(Named):
 
     def _mark(self):
         self.observed = True
+    
+    def __add__(self,rv):
+        return add(self,rv)
 
+    def __sub__(self,rv):
+        return subtract(self,rv)
+
+    def __mul__(self,rv):
+        if isinstance(rv,RandomVariable) :
+            return multiply(self,rv)
+        else:
+            return scale(rv,self)
+
+    def __pow__(self,rv):
+        return power(self,rv)
+
+    def __truediv__(self,rv):
+        if isinstance(rv,RandomVariable) :
+            return divide(self,rv)
+        else:
+            return scale(1/rv, self)
+    
     def mark(self):
         self._mark()
         return self
@@ -331,3 +353,171 @@ class Placeholder(SourceRandomVariable):
         msg = "Placeholders can not be directly sampled because their distribution is unknown. To sample graphical models with placeholders you have to conditionally sample and determine which values to give to the placeholders "
         print(msg, err)
 
+
+class Operation(Named):
+
+    def __init__(self,name):
+
+        super(Operation,self).__init__(name="Operation/"+name)
+        self.op = name
+
+    def _apply(self, tensor):
+        pass
+
+    def __call(self, scm, rvars ):
+        pass
+
+    def __str__(self):
+        return str(id(self))
+
+class UnitaryOperation(Operation):
+    def __init__(self,name,function):
+
+        super(UnitaryOperation, self).__init__(name)
+        self.function=function
+
+    def __call__(self, rvar):
+        scm = SCM.model
+        nrvar = AuxiliaryVariable(
+                "transform/"+ self.name + 
+                "w/" + rvar.name+"//id:" + str(self),
+                self,
+                [rvar])
+
+        rvar.addChildren([nrvar])
+
+        scm.addAuxVariable(nrvar)
+
+        return nrvar
+
+    def _apply(self, tensors):
+        try:
+            return self.function(tensors[0])
+        except FloatingPointError:
+            print("Numeric error sampling. - " + str(self.function), file=sys.stderr)
+            raise 
+
+class BinaryOperation(Operation):
+    def __init__(self, name, function):
+
+        super(BinaryOperation, self).__init__(name)
+        self.function = function
+
+    def __call__(self, rvar1, rvar2):
+        
+        scm = SCM.model
+        nrvar = AuxiliaryVariable("combine/"+
+                              self.name + "w/" + rvar1.name + "&&" + rvar2.name +
+                              "//id:" + str(self),
+                              self,
+                              [rvar1,rvar2])
+
+        rvar1.addChildren([nrvar])
+        rvar2.addChildren([nrvar])
+
+        scm.addAuxVariable(nrvar)
+        return nrvar
+
+    def _apply(self, tensors):
+        try:
+            return self.function(tensors[0], tensors[1]) 
+        except FloatingPointError:
+            print("Numeric error sampling. -"+ str(self.function), file=sys.stderr)
+            raise 
+
+class UOneArgOperation(UnitaryOperation):
+    def __init__(self,name,function, arg):
+        super(UOneArgOperation, self).__init__(name,function)
+        self.arg=arg
+
+    def _apply(self, tensors):
+        try:
+            return self.function(tensors[0],self.arg)
+        except FloatingPointError:
+            print("Numeric error sampling. -" + str(self.function), file=sys.stderr)
+            raise 
+
+
+def exp(nrv):
+    op = UnitaryOperation("exp",np.exp)
+    return op.__call__(nrv)
+
+def log(nrv):
+    op = UnitaryOperation("log",np.log)
+    return op.__call__(nrv)
+
+def negative(nrv):
+    op = UnitaryOperation("neg",np.negative)
+    return op.__call__( nrv)
+
+def sqrt(nrv):
+    op = UnitaryOperation("sqrt",np.sqrt)
+    return op.__call__( nrv)
+
+def square(nrv):
+    op = UnitaryOperation("square",np.square)
+    return op.__call__( nrv)
+
+def power(nrv, n):
+    if isinstance(n, RandomVariable) :
+        op = BinaryOperation("pow", np.power)
+        return op.__call__(nrv, n)
+    else:
+        op = UOneArgOperation("power", np.power, n)
+        return op.__call__(nrv)
+
+def sin(nrv):
+    op = UnitaryOperation("sin",np.sin)
+    return op.__call__( nrv)
+
+def cos(nrv):
+    op = UnitaryOperation("cos",np.cos)
+    return op.__call__( nrv)
+
+def tan(nrv):
+    op = UnitaryOperation("tan",np.tan)
+    return op.__call__( nrv)
+
+def scale(a,b):
+    if isinstance(a, RandomVariable):
+        rv = a
+        s = b
+    else:
+        rv = b
+        s = a
+    op =  UOneArgOperation("scale", np.multiply, s)
+    return op.__call__( rv)
+
+def add(nrv, nrv2):
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("add", np.add)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        c = nrv2
+        rv = nrv
+    else:
+        c = nrv
+        rv = nrv2
+    
+    op = UOneArgOperation("addconstant", np.add, c) 
+
+    return op.__call__(rv)
+
+def subtract(nrv, nrv2):
+    return add(nrv, negative(nrv2))
+
+def multiply(nrv, nrv2):
+    op = BinaryOperation("mul", np.multiply)
+    return op.__call__( nrv, nrv2)
+
+def inverse(nrv):
+    op = UOneArgOperation("inverse", np.divide, 1)
+    return op.__call__(nrv)
+
+def matmul(nrv, nrv2):
+    op = BinaryOperation("matmul",np.matmul)
+    return op.__call__( nrv, nrv2)
+
+def divide(nrv, nrv2):
+    op = BinaryOperation("div", np.divide)
+    return op.__call__( nrv, nrv2)

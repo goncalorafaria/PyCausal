@@ -1,5 +1,5 @@
 from __future__ import division
-from .math import UnitaryOperation
+#from .math import UnitaryOperation
 from .scm import *
 from .stats import independence
 
@@ -61,15 +61,19 @@ class ProposalSCM():
         
     def step(self,X_train,Y_train):
         y_h = self.model.forward(X_train)
-        energy = MDN.loss(y_h, Y_train,entropy_reg=False)
+        energy = MDN.loss(y_h, Y_train,entropy_reg=False,loss_type="EM")
         self.optim.zero_grad()
         energy.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+        #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
         self.optim.step()
+        
+        r = -energy.detach()
+        self.accumulation += r
+        return r
         
     def evaluate(self,X_train,Y_train):
         yt_h = self.model.forward(X_train)
-        energy = MDN.loss(yt_h, Y_train,entropy_reg=False)
+        energy = (-1) * MDN.loss(yt_h, Y_train,entropy_reg=False,loss_type="MAP")
         
         r = energy.detach()
         self.accumulation += r
@@ -98,7 +102,7 @@ def meta_objective(transfer,
     ## setup meta model. 
     gamma = torch.nn.parameter.Parameter(torch.zeros((1,1)))
     
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.Adam(
               [ gamma ], lr=metalr)
     
     gpath = []
@@ -111,7 +115,7 @@ def meta_objective(transfer,
         tpaths[e] = []
         
         ## prepare dataset
-        batch = 1 
+        batch = 4 
         dt = transfer._sample(steps*batch+val)
         
         Xt_train = torch.tensor(dt[features][steps*batch:], dtype=torch.float32)
@@ -122,28 +126,40 @@ def meta_objective(transfer,
             X_train = torch.tensor(dt[features][i*batch:(i+1)*batch].reshape(-1,1), dtype=torch.float32)
             Y_train = torch.tensor(dt[labels][i*batch:(i+1)*batch].reshape(-1,1), dtype=torch.float32)
             
-            scmxy.step(X_train, Y_train)
-            scmyx.step(Y_train, X_train)
+            energyxy = scmxy.step(X_train, Y_train)
+            energyyx = scmyx.step(Y_train, X_train)
 
-            # eval
+           # eval
             
-            energyxy = scmxy.evaluate(X_train, Y_train)
-            energyyx = scmyx.evaluate(Y_train, X_train)
+           # energyxy = scmxy.evaluate(Xt_train, Yt_train)
+           # energyyx = scmyx.evaluate(Yt_train, Xt_train)
             
-            energy = energyyx - energyxy
+            energy = energyxy - energyyx
             tpaths[e].append(energy.numpy())
          
         
-        pb = torch.nn.Sigmoid()(gamma)
         
-        regret = pb * scmxy.online_likelihood() + (1 - pb) * scmyx.online_likelihood()
+        pb = gamma.sigmoid()
+        #pb1, pb2 = F.logsigmoid(gamma), F.logsigmoid(-gamma)
+
+        #logsumexp( pb1 +scmxy.online_likelihood(),  pb2 + scmyx.online_likelihood() )
+       # print("ll")        
+       # print(scmxy.online_likelihood())
+       # print(scmxy.online_likelihood())
+                
+        regret = - torch.log( pb * scmxy.online_likelihood().exp() + (1 - pb) * scmyx.online_likelihood().exp() )
+       # print("regret")
+       # print(regret)
         
         optimizer.zero_grad()
         regret.backward()
         optimizer.step()
         
         tpaths[e] = np.stack(tpaths[e])
-    return tpaths, gpath
+        
+        gpath.append(pb.detach().numpy())
+
+    return tpaths, np.array(gpath).ravel()
 
 def binary_causal_inference_with_interventions(
             base, 
@@ -165,7 +181,7 @@ def binary_causal_inference_with_interventions(
 
     _, g = meta_objective(transfer,A,B, modelxy, modelyx, 
                    lr=lr, metalr=metalr, episodes=episodes,
-                   steps=steps)
+                   steps=steps, val=val)
 
     return g[-1]
 
