@@ -229,7 +229,8 @@ class RandomVariable(Named):
 
     def __sub__(self,rv):
         return subtract(self,rv)
-
+    def __lshift__(self, name):
+        return self.mark(name)
     def __mul__(self,rv):
         if isinstance(rv,RandomVariable) :
             return multiply(self,rv)

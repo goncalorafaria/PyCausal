@@ -17,8 +17,7 @@ Z = Variable("Z", stats.beta(0.5,0.5))
 
 Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
 
-NyZ = multiply(Ny,Z)
-Y = add(NyZ, exp(square(X))).mark("Y")
+Y = Ny * Z + exp( X**2 ) << "Y"
 
 model.draw()
 ```
