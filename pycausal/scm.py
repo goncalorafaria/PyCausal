@@ -107,20 +107,20 @@ class SCM(Named):
 
     def sample(self,size):
         return self.sample_cached({}, size)
-    
+
     def save(self,path):
         with open(path,"wb") as fp:
             pickle.dump(self,fp)
-    
+
     def intervene(self, rvs):
         return InterventionSCM(self,rvs)
 
     def load(path):
         with open(path,"rb") as fp:
             w = pickle.load(fp)
-        
+
         return w
-    
+
     def conditional_sampling(self, rvs, size=1):
 
         cache = {}
@@ -131,12 +131,12 @@ class SCM(Named):
         results = { n[0] : n[1] for n in
                    filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
         return results
-    
+
     def _conditional_sampling(self, rvs, size=1):
-        
-        results = { n[0].uname() : n[1] for n in 
+
+        results = { n[0].uname() : n[1] for n in
             filter(lambda rv: rv[0].observed , self._conditional_sampling(rvs,size).items())  }
-        
+
         return results
 
     def draw(self, figsize=(12,8), node_size=1200 ):
@@ -188,7 +188,7 @@ class InterventionSCM(SCM):
     def __init__(self,
                  scm,
                  rvs):
-    
+
         super(InterventionSCM, self).__init__(name="I"+scm.uname())
         self.nodes = scm.nodes
         self.ancestors = scm.ancestors
@@ -203,12 +203,8 @@ class InterventionSCM(SCM):
                 cache[val] = s
             else:
                 cache[rv] =  val
-        
-        return self.conditional_sampling(cache,size) 
-        
-  #  def _sample(self,size=1):
-  #      for i in self.sample().items():
-  #          print(i)
+
+        return self.conditional_sampling(cache,size)
 
 class RandomVariable(Named):
     def __init__(self,
@@ -223,7 +219,7 @@ class RandomVariable(Named):
 
     def _mark(self):
         self.observed = True
-    
+
     def __add__(self,rv):
         return add(self,rv)
 
@@ -245,7 +241,7 @@ class RandomVariable(Named):
             return divide(self,rv)
         else:
             return scale(1/rv, self)
-    
+
     def mark(self):
         self._mark()
         return self
@@ -314,7 +310,6 @@ class AuxiliaryVariable(RandomVariable):
 
         return z
 
-
 class SourceRandomVariable(RandomVariable):##SourceRandomVariable
     def __init__(self,
                  name,
@@ -347,13 +342,12 @@ class Placeholder(SourceRandomVariable):
     def __init__(self,
                  name,
                  shape):
-        super(Placeholder, self).__init__(name, None,shape,True)
+        super(Placeholder, self).__init__(name, None,shape,False)
 
-    
+
     def sample(self,size):
         msg = "Placeholders can not be directly sampled because their distribution is unknown. To sample graphical models with placeholders you have to conditionally sample and determine which values to give to the placeholders "
         print(msg, err)
-
 
 class Operation(Named):
 
@@ -380,7 +374,7 @@ class UnitaryOperation(Operation):
     def __call__(self, rvar):
         scm = SCM.model
         nrvar = AuxiliaryVariable(
-                "transform/"+ self.name + 
+                "transform/"+ self.name +
                 "w/" + rvar.name+"//id:" + str(self),
                 self,
                 [rvar])
@@ -396,7 +390,7 @@ class UnitaryOperation(Operation):
             return self.function(tensors[0])
         except FloatingPointError:
             print("Numeric error sampling. - " + str(self.function), file=sys.stderr)
-            raise 
+            raise
 
 class BinaryOperation(Operation):
     def __init__(self, name, function):
@@ -405,7 +399,7 @@ class BinaryOperation(Operation):
         self.function = function
 
     def __call__(self, rvar1, rvar2):
-        
+
         scm = SCM.model
         nrvar = AuxiliaryVariable("combine/"+
                               self.name + "w/" + rvar1.name + "&&" + rvar2.name +
@@ -421,10 +415,10 @@ class BinaryOperation(Operation):
 
     def _apply(self, tensors):
         try:
-            return self.function(tensors[0], tensors[1]) 
+            return self.function(tensors[0], tensors[1])
         except FloatingPointError:
             print("Numeric error sampling. -"+ str(self.function), file=sys.stderr)
-            raise 
+            raise
 
 class UOneArgOperation(UnitaryOperation):
     def __init__(self,name,function, arg):
@@ -436,8 +430,9 @@ class UOneArgOperation(UnitaryOperation):
             return self.function(tensors[0],self.arg)
         except FloatingPointError:
             print("Numeric error sampling. -" + str(self.function), file=sys.stderr)
-            raise 
+            raise
 
+## Function definitions.
 
 def exp(nrv):
     op = UnitaryOperation("exp",np.exp)
@@ -499,8 +494,8 @@ def add(nrv, nrv2):
     else:
         c = nrv
         rv = nrv2
-    
-    op = UOneArgOperation("addconstant", np.add, c) 
+
+    op = UOneArgOperation("addconstant", np.add, c)
 
     return op.__call__(rv)
 

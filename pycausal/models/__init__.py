@@ -1,1 +1,1 @@
-from .models import MDN
+from .models import MDN, GMM

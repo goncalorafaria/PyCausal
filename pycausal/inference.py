@@ -4,9 +4,11 @@ from .scm import *
 from .stats import independence
 
 from copy import deepcopy
-from .models import MDN
+from .models import MDN, GMM
 from sklearn.neural_network import MLPRegressor
 import torch
+
+import matplotlib.pyplot as plt
 
 def fit_conditional_and_test(X_train, Y_train):
 
@@ -22,7 +24,7 @@ def fit_conditional_and_test(X_train, Y_train):
     return (independence(X_train,residuals)), regressor
 
 def binary_causal_discovery(X,Y,nameX,nameY,graphname="Sample Graph"):
-    bX , mX = fit_conditional_and_test(X,Y)     
+    bX , mX = fit_conditional_and_test(X,Y)
     bY , mY = fit_conditional_and_test(Y,X)
 
     if bX and not bY :
@@ -35,154 +37,187 @@ def binary_causal_discovery(X,Y,nameX,nameY,graphname="Sample Graph"):
         f=mY
     else :
         return None
- 
+
     model = SCM(graphname)
     Xvar = placeholder(origin)
- 
+
     op = UnitaryOperation("universal approximator",f.predict)
     Yvar = op(Xvar).mark(dest)
- 
+
     return model
 
 class ProposalSCM():
-    def __init__(self, model, lr):
+    def __init__(self, modelX, model, lr, finetune=10, method="EM"):
         self.omodel = model
         self.model = deepcopy(model)
+        self.omodelX = modelX
+        self.modelX = deepcopy(modelX)
         self.optim = torch.optim.Adam(
-            self.model.parameters(), lr=lr)
-        self.accumulation = torch.zeros((1,1)) 
+            list(self.model.parameters()) + list(self.modelX.parameters()), lr=lr)
+        self.optimX = torch.optim.Adam(
+            self.modelX.parameters(),
+            lr=lr)
+        self.accumulation = torch.zeros((1,1))
         self.lr = lr
-    
+        self.method=method
+        self.iit = finetune
+
     def copy(self):
         self.model = deepcopy(self.omodel)
+        self.modelX = deepcopy(self.omodelX)
         self.accumulation = torch.zeros((1,1))
         self.optim = torch.optim.Adam(
-            self.model.parameters(), lr=self.lr)
-        
-    def step(self,X_train,Y_train):
-        y_h = self.model.forward(X_train)
-        energy = MDN.loss(y_h, Y_train,entropy_reg=False,loss_type="EM")
-        self.optim.zero_grad()
-        energy.backward()
-        #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-        self.optim.step()
-        
-        r = -energy.detach()
+            self.model.parameters(),
+            lr=self.lr)
+        self.optimX = torch.optim.Adam(
+            self.modelX.parameters(),
+            lr=self.lr)
+    def fit(self,X_train,Y_train):
+
+        for i in range(self.iit):
+            x_h = self.modelX.forward(X_train)
+            energyx = GMM.loss(x_h, X_train,
+                entropy_reg = True,
+                loss_type=self.method)
+
+            self.optimX.zero_grad()
+            energyx.backward()
+            self.optimX.step()
+
+
+        for i in range(self.iit):
+
+            y_h = self.model.forward(X_train)
+            energyyx = MDN.loss(y_h, Y_train,
+                    entropy_reg = True,
+                    loss_type=self.method)
+
+            self.optim.zero_grad()
+            energyyx.backward()
+            self.optim.step()
+
+        r = -energyyx.detach() - energyx.detach()
         self.accumulation += r
+
         return r
-        
+
     def evaluate(self,X_train,Y_train):
         yt_h = self.model.forward(X_train)
-        energy = (-1) * MDN.loss(yt_h, Y_train,entropy_reg=False,loss_type="MAP")
-        
-        r = energy.detach()
+        energy = MDN.loss(yt_h, Y_train,entropy_reg = False, loss_type=self.method)
+
+        xt_h = self.modelX.forward(X_train)
+        energyx = GMM.loss(xt_h, X_train, entropy_reg = False, loss_type=self.method)
+
+        energy = energyyx + energyx
+
+        r = -energy.detach()
         self.accumulation += r
-        
+
         return r
-    
+
     def online_likelihood(self):
+        #print("acc!")
+        #print(self.accumulation)
         return self.accumulation
 
-def meta_objective(transfer, 
-         features, 
-         labels, 
-         modelxy, 
-         modelyx, 
+def meta_objective(transfer,
+         features,
+         labels,
+         modelxx,
+         modelxy,
+         modelyy,
+         modelyx,
          steps=15,
          episodes=300,
          lr = 1e-3,
          metalr = 1e-2,
-         val=300):
-    
+         finetune=10):
+
     tpaths = {}
-    
-    scmxy = ProposalSCM(modelxy,lr)
-    scmyx = ProposalSCM(modelyx,lr)
-    
-    ## setup meta model. 
+
+    scmxy = ProposalSCM(modelxx, modelxy, lr, finetune)
+    scmyx = ProposalSCM(modelyy, modelyx, lr, finetune)
+
+    ## setup meta model.
     gamma = torch.nn.parameter.Parameter(torch.zeros((1,1)))
-    
+
     optimizer = torch.optim.Adam(
               [ gamma ], lr=metalr)
-    
+
     gpath = []
-    
+
     for e in range(episodes):
         ## setup new model
         scmxy.copy()
         scmyx.copy()
-     
+
         tpaths[e] = []
-        
+
         ## prepare dataset
-        batch = 4 
-        dt = transfer._sample(steps*batch+val)
-        
-        Xt_train = torch.tensor(dt[features][steps*batch:], dtype=torch.float32)
-        Yt_train = torch.tensor(dt[labels][steps*batch:], dtype=torch.float32)
-    
-        for i in range(steps):
+        batch = steps
+        dt = transfer._sample(batch)
 
-            X_train = torch.tensor(dt[features][i*batch:(i+1)*batch].reshape(-1,1), dtype=torch.float32)
-            Y_train = torch.tensor(dt[labels][i*batch:(i+1)*batch].reshape(-1,1), dtype=torch.float32)
-            
-            energyxy = scmxy.step(X_train, Y_train)
-            energyyx = scmyx.step(Y_train, X_train)
+        #Xt_train = torch.tensor(dt[features][steps*batch:], dtype=torch.float32)
+        #Yt_train = torch.tensor(dt[labels][steps*batch:], dtype=torch.float32)
 
-           # eval
-            
-           # energyxy = scmxy.evaluate(Xt_train, Yt_train)
-           # energyyx = scmyx.evaluate(Yt_train, Xt_train)
-            
-            energy = energyxy - energyyx
-            tpaths[e].append(energy.numpy())
-         
-        
-        
+        X_train = torch.tensor(dt[features].reshape(-1,1), dtype=torch.float32)
+        Y_train = torch.tensor(dt[labels].reshape(-1,1), dtype=torch.float32)
+
+        energyxy = scmxy.fit(X_train, Y_train)
+        energyyx = scmyx.fit(Y_train, X_train)
+
+        energy = energyxy - energyyx
+        tpaths[e].append(energy.numpy())
+
         pb = gamma.sigmoid()
-        #pb1, pb2 = F.logsigmoid(gamma), F.logsigmoid(-gamma)
 
-        #logsumexp( pb1 +scmxy.online_likelihood(),  pb2 + scmyx.online_likelihood() )
-       # print("ll")        
-       # print(scmxy.online_likelihood())
-       # print(scmxy.online_likelihood())
-                
-        regret = - torch.log( pb * scmxy.online_likelihood().exp() + (1 - pb) * scmyx.online_likelihood().exp() )
-       # print("regret")
-       # print(regret)
-        
+        regret = - torch.log( 1e-20 + pb * scmxy.online_likelihood().exp() + (1 - pb) * scmyx.online_likelihood().exp() )
+        #print("regret")
+        #print(regret)
+
         optimizer.zero_grad()
         regret.backward()
         optimizer.step()
-        
+
         tpaths[e] = np.stack(tpaths[e])
-        
+
         gpath.append(pb.detach().numpy())
 
     return tpaths, np.array(gpath).ravel()
 
 def binary_causal_inference_with_interventions(
-            base, 
-            transfer, 
-            A, 
-            B, 
-            epochs=2000,
-            steps=15, 
-            episodes=100, 
-            lr=1e-3, 
+            base,
+            transfer,
+            A,
+            B,
+            epochs=1000,
+            steps=15,
+            episodes=100,
+            lr=1e-3,
             metalr=1e-2,
-            val=300):
-    
+            finetune=30):
+
+    modelxx = GMM(10)
+    lossxx = modelxx.fit(base, A, loss_type="EM", entropy_reg=True, epochs=epochs)
     modelxy = MDN([1,36],10)
-    lossxy = modelxy.fit(base, A, B, epoch=epochs)
+    lossxy = modelxy.fit(base, A, B, loss_type="EM", reg=True, epoch=epochs)
 
+    modelyy = GMM(10)
+    lossyy = modelyy.fit(base, B, loss_type="EM", entropy_reg=True, epochs=epochs)
     modelyx = MDN([1,36],10)
-    lossyx = modelyx.fit(base, B, A, epoch=epochs)
+    lossyx = modelyx.fit(base, B, A, loss_type="EM", reg=True, epoch=epochs)
 
-    _, g = meta_objective(transfer,A,B, modelxy, modelyx, 
-                   lr=lr, metalr=metalr, episodes=episodes,
-                   steps=steps, val=val)
+    print( ( np.array(lossxy) + np.array(lossxx) )[-1])
+    print( ( np.array(lossyx) + np.array(lossyy) )[-1])
+
+    _, g = meta_objective(transfer, A, B, modelxx, modelxy, modelyy, modelyx,
+                lr=lr, metalr=metalr, episodes=episodes,
+                steps=steps, finetune=finetune)
+
+    plt.plot(g, linewidth=2,c="black")
+    plt.plot(np.ones(episodes),label="A->B",linestyle='dashed',c="grey")
+        plt.plot(np.zeros(episodes),label="B->A",linestyle='dashed',c="black")
+    plt.legend()
+    plt.show()
 
     return g[-1]
-
- 

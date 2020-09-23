@@ -6,8 +6,7 @@ Z = Variable("Z", stats.beta(0.5,0.5))
 
 Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
 
-NyZ = multiply(Ny,Z)
-Y = add(NyZ, exp(square(X))).mark("Y")
+Y = Ny * Z + exp( X**2 ) << "Y"
 
 model.draw()
 
@@ -32,16 +31,15 @@ model = SCM("Raw I Causal Graph")
 iX = Variable("iX", stats.norm(loc=0,scale=1))
 P = placeholder("P")
 
-X = add(iX,P).mark("X")
+X = iX + P << "X"
 
 Z = Variable("Z", stats.beta(0.5,0.5))
 
 Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
 
-NyZ = multiply(Ny,Z)
-Y = add(NyZ, exp(square(X))).mark("Y")
+Y = Ny * Z +  exp(X**2) << "Y"
 
-mi = model.intervene({P : Variable("Perturbation", stats.norm(loc=2,scale=1))})
+mi = model.intervene({P : HiddenVariable("Perturbation", stats.norm(loc=2,scale=1))})
 print( mi.sample(10)["Y"].shape )
 #nimodel.draw()
 
