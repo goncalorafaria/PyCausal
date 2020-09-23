@@ -216,7 +216,7 @@ def binary_causal_inference_with_interventions(
 
     plt.plot(g, linewidth=2,c="black")
     plt.plot(np.ones(episodes),label="A->B",linestyle='dashed',c="grey")
-        plt.plot(np.zeros(episodes),label="B->A",linestyle='dashed',c="black")
+    plt.plot(np.zeros(episodes),label="B->A",linestyle='dashed',c="black")
     plt.legend()
     plt.show()
 
