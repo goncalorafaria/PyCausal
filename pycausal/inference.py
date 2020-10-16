@@ -72,6 +72,7 @@ class ProposalSCM():
         self.optimX = torch.optim.Adam(
             self.modelX.parameters(),
             lr=self.lr)
+
     def fit(self,X_train,Y_train):
 
         for i in range(self.iit):
@@ -97,28 +98,48 @@ class ProposalSCM():
             self.optim.step()
 
         r = -energyyx.detach() - energyx.detach()
-        self.accumulation += r
+        #self.accumulation += r
 
         return r
 
-    def evaluate(self,X_train,Y_train):
-        yt_h = self.model.forward(X_train)
-        energy = MDN.loss(yt_h, Y_train,entropy_reg = False, loss_type=self.method)
+    def online_likelihood(self,X_train,Y_train):
 
-        xt_h = self.modelX.forward(X_train)
-        energyx = GMM.loss(xt_h, X_train, entropy_reg = False, loss_type=self.method)
+        optim = torch.optim.SGD(
+            list(self.model.parameters()) +list(self.modelX.parameters()),
+            lr=self.lr*0.1)
 
-        energy = energyyx + energyx
+        cum = torch.zeros((1,1))
+        for x,y in zip(X_train,Y_train):
+            x = x.view(1,1)
+            y = y.view(1,1)
+            yt_h = self.model.forward(x)
+            energy = MDN.loss(yt_h, y,entropy_reg = True, loss_type=self.method)
+            sc = MDN.loss(yt_h, y,entropy_reg = False, loss_type="MAP")
 
-        r = -energy.detach()
-        self.accumulation += r
+            xt_h = self.modelX.forward(x)
+            energyx = GMM.loss(xt_h, x, entropy_reg = True, loss_type=self.method)
+            scx = GMM.loss(xt_h, x, entropy_reg = False, loss_type="MAP")
 
-        return r
+            energy = energy + energyx
+            score = sc + scx
 
-    def online_likelihood(self):
+            score = torch.minimum(score, 20)
+            energy = torch.minimum(energy, 20)
+
+            optim.zero_grad()
+            energy.backward()
+            optim.step()
+
+            cum -= score.detach()
+        #print("#####")
+        return cum
+
+        #return self.accumulation
+
+
         #print("acc!")
         #print(self.accumulation)
-        return self.accumulation
+        #return self.accumulation
 
 def meta_objective(transfer,
          features,
@@ -171,7 +192,7 @@ def meta_objective(transfer,
 
         pb = gamma.sigmoid()
 
-        regret = - torch.log( 1e-20 + pb * scmxy.online_likelihood().exp() + (1 - pb) * scmyx.online_likelihood().exp() )
+        regret = - torch.log( 1e-20 + pb * scmxy.online_likelihood(X_train,Y_train).exp() + (1 - pb) * scmyx.online_likelihood(Y_train,X_train).exp() )
         #print("regret")
         #print(regret)
 

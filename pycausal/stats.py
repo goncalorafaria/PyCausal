@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.stats import gamma
 
+
+### mention authors
+
 def hsic_gam(X, Y, alph = 0.5):
     """
     X, Y are numpy vectors with row - sample, col - dim
@@ -18,8 +21,11 @@ def hsic_gam(X, Y, alph = 0.5):
         R = np.tile(H.T, (size1[0], 1))
 
         H = Q + R - 2* np.dot(pattern1, pattern2.T)
+        #print(-H/2/(deg**2))
 
-        H = np.exp(-H/2/(deg**2))
+        xx = np.maximum(-H/2/(deg**2),-50)
+
+        H = np.exp(xx)
 
         return H
     n = X.shape[0]

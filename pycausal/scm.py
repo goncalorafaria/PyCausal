@@ -60,7 +60,8 @@ class SCM(Named):
 
         rv._mark()
         del self.nodes[rv.name]
-        rv.name = "M/" + name
+        #rv.name = "M/" + name
+        rv.name = name
         self.addAuxVariable(rv)
 
         return rv
@@ -101,7 +102,7 @@ class SCM(Named):
         return cache
 
     def _sample(self,size):
-        results = { n[0].uname() : n[1]
+        results = { n[0].name : n[1]
                    for n in filter(lambda rv: rv[0].observed , self.sample(size).items()) }
         return results
 
@@ -128,13 +129,15 @@ class SCM(Named):
         for k, v in rvs.items():
             cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
 
+        #results = { n[0] : n[1] for n in
+        #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
         results = { n[0] : n[1] for n in
-                   filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
+                  filter(lambda rv: rv[0].observed or  isinstance(rv[0],Placeholder), self.sample_cached(cache,size).items())  }
         return results
 
     def _conditional_sampling(self, rvs, size=1):
 
-        results = { n[0].uname() : n[1] for n in
+        results = { n[0].name : n[1] for n in
             filter(lambda rv: rv[0].observed , self._conditional_sampling(rvs,size).items())  }
 
         return results
@@ -159,7 +162,7 @@ class SCM(Named):
 
         for n in self.nodes.values():
             if n.observed :
-                G.add_node(n.uname())
+                G.add_node(n.name)
 
         tested = set([])
 
@@ -170,7 +173,7 @@ class SCM(Named):
             lrv = rv.reach()
 
             for n in lrv:
-                G.add_edge(rv.uname(), n.uname())
+                G.add_edge(rv.name, n.name)
 
                 if n not in tested :
                     q.put(n)
@@ -179,7 +182,7 @@ class SCM(Named):
 
     def getMarked(self):
         return list(
-            map( lambda x : x.uname(),
+            map( lambda x : x.name,
                 filter( lambda x : x.observed ,self.nodes.values())
             )
         )
@@ -210,7 +213,7 @@ class RandomVariable(Named):
     def __init__(self,
                  name,
                  observed):
-        super(RandomVariable, self).__init__("RV/"+name)
+        super(RandomVariable, self).__init__(name)
         self.outbound = set([])
         self.observed = observed
 

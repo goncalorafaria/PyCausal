@@ -191,6 +191,13 @@ class MDN(GMMOutput):
         #sigma = torch.exp(self.z_sigma(z_h))
         return pi, mu, sigma
 
+    def predict(self, X_train):
+
+        X_train = torch.tensor(X_train, dtype=torch.float)
+        pi, mu, _ = self.forward(X_train)
+
+        return torch.einsum("ij,ij->i",pi,mu).detach().numpy()
+
     def fit(self, scm, features="X", labels="Y", lr=1e-3, batch=248, epoch = 300, loss_type="EM", m_step_iter = 10,alpha=2, reg=False):
 
         optim = torch.optim.AdamW(self.parameters(), lr=lr)
