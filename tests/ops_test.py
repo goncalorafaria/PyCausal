@@ -17,8 +17,6 @@ for op in [power, add, subtract, multiply, divide]:
 
 print("|testing ops during sampling.")
 for test in model.sample(2).keys():
-    if not "RV" in test.name :
-        print(test.name)
-        print("--\\"+test.name.split("at 0x")[0].split(" ")[1])
+    print(test.name)
 
 print("|terminated with sucess.")

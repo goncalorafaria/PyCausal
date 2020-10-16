@@ -3,7 +3,7 @@ from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
-import numpy as np
+import torch
 import pickle
 import sys
 
@@ -127,7 +127,7 @@ class SCM(Named):
         cache = {}
 
         for k, v in rvs.items():
-            cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
+            cache[k] = v.view([1]+list(v.shape)).repeat([size]+len(v.shape)*[1])
 
         #results = { n[0] : n[1] for n in
         #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
@@ -290,7 +290,7 @@ class AuxiliaryVariable(RandomVariable):
         cache = {}
 
         for k, v in given.items():
-            cache[k] = np.tile(v.reshape([1]+list(v.shape) ),[size]+len(v.shape)*[1])
+            cache[k] = v.view([1]+list(v.shape)).repeat([size]+len(v.shape)*[1])
 
         return self.sampling_cached(cache, size)[self]
 
@@ -325,11 +325,12 @@ class SourceRandomVariable(RandomVariable):##SourceRandomVariable
         self.shape = shape
 
     def sample(self, size=1):
-        return self.sampler.rvs(size).reshape([size]+self.shape)
+        return torch.tensor(
+            self.sampler.rvs(size),dtype=torch.float32).view([size]+self.shape)
 
     def conditional_sampling(self, given, size):
         if self in given.keys():
-            return np.tile(given[self].reshape([1]+self.shape), [size]+len(self.shape)*[1])
+            return given[self].view([1]+self.shape).repeat([size]+len(self.shape)*[1])
         else:
             return self.sample(size)
 
@@ -438,43 +439,43 @@ class UOneArgOperation(UnitaryOperation):
 ## Function definitions.
 
 def exp(nrv):
-    op = UnitaryOperation("exp",np.exp)
+    op = UnitaryOperation("exp",torch.exp)
     return op.__call__(nrv)
 
 def log(nrv):
-    op = UnitaryOperation("log",np.log)
+    op = UnitaryOperation("log",torch.log)
     return op.__call__(nrv)
 
 def negative(nrv):
-    op = UnitaryOperation("neg",np.negative)
+    op = UnitaryOperation("neg",torch.negative)
     return op.__call__( nrv)
 
 def sqrt(nrv):
-    op = UnitaryOperation("sqrt",np.sqrt)
+    op = UnitaryOperation("sqrt",torch.sqrt)
     return op.__call__( nrv)
 
 def square(nrv):
-    op = UnitaryOperation("square",np.square)
+    op = UnitaryOperation("square",torch.square)
     return op.__call__( nrv)
 
 def power(nrv, n):
     if isinstance(n, RandomVariable) :
-        op = BinaryOperation("pow", np.power)
+        op = BinaryOperation("pow", torch.pow)
         return op.__call__(nrv, n)
     else:
-        op = UOneArgOperation("power", np.power, n)
+        op = UOneArgOperation("power", torch.pow, n)
         return op.__call__(nrv)
 
 def sin(nrv):
-    op = UnitaryOperation("sin",np.sin)
+    op = UnitaryOperation("sin",torch.sin)
     return op.__call__( nrv)
 
 def cos(nrv):
-    op = UnitaryOperation("cos",np.cos)
+    op = UnitaryOperation("cos",torch.cos)
     return op.__call__( nrv)
 
 def tan(nrv):
-    op = UnitaryOperation("tan",np.tan)
+    op = UnitaryOperation("tan",torch.tan)
     return op.__call__( nrv)
 
 def scale(a,b):
@@ -484,12 +485,12 @@ def scale(a,b):
     else:
         rv = b
         s = a
-    op =  UOneArgOperation("scale", np.multiply, s)
+    op =  UOneArgOperation("scale", torch.multiply, s)
     return op.__call__( rv)
 
 def add(nrv, nrv2):
     if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
-        op = BinaryOperation("add", np.add)
+        op = BinaryOperation("add", torch.add)
         return op.__call__( nrv, nrv2)
     elif isinstance(nrv, RandomVariable):
         c = nrv2
@@ -498,7 +499,7 @@ def add(nrv, nrv2):
         c = nrv
         rv = nrv2
 
-    op = UOneArgOperation("addconstant", np.add, c)
+    op = UOneArgOperation("addconstant", torch.add, c)
 
     return op.__call__(rv)
 
@@ -506,17 +507,17 @@ def subtract(nrv, nrv2):
     return add(nrv, negative(nrv2))
 
 def multiply(nrv, nrv2):
-    op = BinaryOperation("mul", np.multiply)
+    op = BinaryOperation("mul", torch.multiply)
     return op.__call__( nrv, nrv2)
 
 def inverse(nrv):
-    op = UOneArgOperation("inverse", np.divide, 1)
+    op = UOneArgOperation("inverse", torch.divide, 1)
     return op.__call__(nrv)
 
 def matmul(nrv, nrv2):
-    op = BinaryOperation("matmul",np.matmul)
+    op = BinaryOperation("matmul",torch.matmul)
     return op.__call__( nrv, nrv2)
 
 def divide(nrv, nrv2):
-    op = BinaryOperation("div", np.divide)
+    op = BinaryOperation("div", torch.divide)
     return op.__call__( nrv, nrv2)

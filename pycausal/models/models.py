@@ -12,7 +12,7 @@ class GMMOutput(torch.nn.Module):
 
     def sample(self, x):
 
-        X_train = torch.tensor(x, dtype=torch.float32)
+        X_train = x
         amount = x.shape[0]
         pis, mus, sigmas = self.forward(X_train)
 
@@ -120,7 +120,7 @@ class GMM(GMMOutput):
             cls = km.cluster_centers_
 
             self.mus = torch.nn.Parameter(
-                torch.tensor(cls).t()
+                torch.tensor(cls.T,dtype=torch.float32)
                 )
 
 
@@ -137,7 +137,7 @@ class GMM(GMMOutput):
             #llp.append( self.pis )
 
             smps = scm._sample(batch)
-            X_train = torch.tensor(smps[features], dtype=torch.float32)
+            X_train = smps[features]
 
             for _ in range(m_step_iter):
 
@@ -152,7 +152,7 @@ class GMM(GMMOutput):
                 energy.backward()
                 optim.step()
 
-                lossap.append(energy.detach().numpy())
+                lossap.append(energy.detach().item())
 
         return lossap #, llp
 
@@ -193,7 +193,7 @@ class MDN(GMMOutput):
 
     def predict(self, X_train):
 
-        X_train = torch.tensor(X_train, dtype=torch.float)
+        X_train = X_train
         pi, mu, _ = self.forward(X_train)
 
         return torch.einsum("ij,ij->i",pi,mu).detach().numpy()
@@ -209,8 +209,8 @@ class MDN(GMMOutput):
 
         for i in range(epoch):
             smps = scm._sample(batch)
-            X_train = torch.tensor(smps[features], dtype=torch.float32)
-            Y_train = torch.tensor(smps[labels], dtype=torch.float32)
+            X_train = smps[features]
+            Y_train = smps[labels]
 
             for _ in range(m_step_iter):
                 y_h = self.forward(X_train)
@@ -220,6 +220,6 @@ class MDN(GMMOutput):
                # torch.nn.utils.clip_grad_norm_(self.parameters(), )
                 optim.step()
 
-                lossap.append(energy.detach().numpy())
+                lossap.append(energy.detach().item())
 
         return lossap

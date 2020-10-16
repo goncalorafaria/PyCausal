@@ -7,6 +7,7 @@ from copy import deepcopy
 from .models import MDN, GMM
 from sklearn.neural_network import MLPRegressor
 import torch
+import numpy as np
 
 import matplotlib.pyplot as plt
 
@@ -16,16 +17,19 @@ def fit_conditional_and_test(X_train, Y_train):
     regressor = MLPRegressor(
 	                hidden_layer_sizes=(100,100, 100),
 	                activation="relu",
-	                max_iter=1000)
+	                max_iter=5000)
     regressor.fit(X_train,Y_train)
 
     residuals = (regressor.predict(X_train) - Y_train).reshape(-1,1)
 
     return (independence(X_train,residuals)), regressor
 
+"""
+
+"""
 def binary_causal_discovery(X,Y,nameX,nameY,graphname="Sample Graph"):
-    bX , mX = fit_conditional_and_test(X,Y)
-    bY , mY = fit_conditional_and_test(Y,X)
+    bX , mX = fit_conditional_and_test(X.detach().numpy(),Y.detach().numpy())
+    bY , mY = fit_conditional_and_test(Y.detach().numpy(),X.detach().numpy())
 
     if bX and not bY :
         origin=nameX
@@ -123,8 +127,9 @@ class ProposalSCM():
             energy = energy + energyx
             score = sc + scx
 
-            score = torch.minimum(score, 20)
-            energy = torch.minimum(energy, 20)
+            th = torch.tensor(20,dtype=torch.float32)
+            score = torch.minimum(score, th)
+            energy = torch.minimum(energy, th)
 
             optim.zero_grad()
             energy.backward()
@@ -181,8 +186,8 @@ def meta_objective(transfer,
         #Xt_train = torch.tensor(dt[features][steps*batch:], dtype=torch.float32)
         #Yt_train = torch.tensor(dt[labels][steps*batch:], dtype=torch.float32)
 
-        X_train = torch.tensor(dt[features].reshape(-1,1), dtype=torch.float32)
-        Y_train = torch.tensor(dt[labels].reshape(-1,1), dtype=torch.float32)
+        X_train = dt[features].view(-1,1)
+        Y_train = dt[labels].view(-1,1)
 
         energyxy = scmxy.fit(X_train, Y_train)
         energyyx = scmyx.fit(Y_train, X_train)

@@ -2,8 +2,15 @@ import numpy as np
 from scipy.stats import gamma
 
 
-### mention authors
-
+"""
+ Hilbert-Schmidt Independence Criterion.
+ @inproceedings{Gretton2007AKS,
+  title={A Kernel Statistical Test of Independence},
+  author={A. Gretton and K. Fukumizu and C. Teo and L. Song and B. Sch{\"o}lkopf and A. Smola},
+  booktitle={NIPS},
+  year={2007}
+}
+"""
 def hsic_gam(X, Y, alph = 0.5):
     """
     X, Y are numpy vectors with row - sample, col - dim
@@ -91,5 +98,8 @@ def hsic_gam(X, Y, alph = 0.5):
     return (testStat, thresh)
 
 def independence(x, y, alpha=0.05):
-    testStat, thresh = hsic_gam(x,y,alpha)
+    if( not isinstance(x, (np.ndarray, np.generic) ) ):
+        testStat, thresh = hsic_gam(x.detach().numpy(),y.detach().numpy(),alpha)
+    else:
+        testStat, thresh = hsic_gam(x,y,alpha)
     return testStat < thresh

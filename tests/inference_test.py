@@ -28,17 +28,13 @@ Y = add( square(X), Ny).mark("Y")
 
 
 
-## test MDN. 
+## test MDN.
 
 from pycausal import models
 
-me = models.MDN([1,36],36) 
+me = models.MDN([1,36],36)
 
-print(me.fit(modeleasy))
-
-
-
-
+me.fit(modeleasy)
 
 #model.draw_complete()
 
@@ -53,9 +49,7 @@ for i in range(6):
     for j in [0,1]:
         data = models[j]._sample(trial)
         scm = binary_causal_discovery(data["Y"],data["X"],"Y","X")
-        
-        #print(scm)
-       
+
         if j == 0:
             if scm is None:
                 print("easy model failed.")

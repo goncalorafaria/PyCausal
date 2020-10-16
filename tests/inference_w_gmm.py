@@ -30,7 +30,7 @@ Perturbation = HiddenVariable("Perturbation", stats.uniform(2,1))
 transfer = interv.intervene({P: Perturbation})
 
 a = binary_causal_inference_with_interventions(
-        base, transfer, "X", "Y", epochs=1000, steps=15,
+        base, transfer, "X", "Y", epochs=500, steps=15,
         episodes=100, lr=1e-2, metalr=1e-1, finetune=10)
 
 print(a)
