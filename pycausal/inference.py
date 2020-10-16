@@ -183,9 +183,6 @@ def meta_objective(transfer,
         batch = steps
         dt = transfer._sample(batch)
 
-        #Xt_train = torch.tensor(dt[features][steps*batch:], dtype=torch.float32)
-        #Yt_train = torch.tensor(dt[labels][steps*batch:], dtype=torch.float32)
-
         X_train = dt[features].view(-1,1)
         Y_train = dt[labels].view(-1,1)
 
@@ -197,7 +194,7 @@ def meta_objective(transfer,
 
         pb = gamma.sigmoid()
 
-        regret = - torch.log( 1e-20 + pb * scmxy.online_likelihood(X_train,Y_train).exp() + (1 - pb) * scmyx.online_likelihood(Y_train,X_train).exp() )
+        regret = - torch.log( 1e-7 + pb * scmxy.online_likelihood(X_train,Y_train).exp() + (1 - pb) * scmyx.online_likelihood(Y_train,X_train).exp() )
         #print("regret")
         #print(regret)
 
