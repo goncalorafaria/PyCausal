@@ -34,6 +34,7 @@ class GMMOutput(torch.nn.Module):
 
     def maploss(pi_mu_sigma, y, reduce=True, entropy_reg=True, alpha=2):
         pi, mu, sigma = pi_mu_sigma
+
         m = torch.distributions.Normal(loc=mu, scale=sigma)
 
         log_prob_y = m.log_prob(y) ## y | theta
@@ -49,7 +50,11 @@ class GMMOutput(torch.nn.Module):
             loss = loss - entropy * alpha
 
         if reduce:
-            return torch.mean(loss)
+            loss = torch.mean(loss)
+            if loss.isnan():
+                print( "pi" + str(pi)+ ":mu" + str(mu) + ":sigma" + str(sigma) )
+
+            return loss
         else:
             return loss
 
@@ -169,9 +174,9 @@ class MDN(GMMOutput):
             l.append(
                 act
             )
-           # l.append(
-           #     torch.nn.BatchNorm1d(n_hidden[i])
-           # )
+           #l.append(
+            #    torch.nn.BatchNorm1d(n_hidden[i])
+           #)
 
         l = l + [torch.nn.Linear(n_hidden[nh-2],n_hidden[nh-1]),act]
         self.z_h = torch.nn.Sequential( *l )
@@ -217,7 +222,6 @@ class MDN(GMMOutput):
                 energy = GMMOutput.loss(y_h, Y_train, reduce=True, loss_type=loss_type, entropy_reg = reg,alpha=alpha)
                 optim.zero_grad()
                 energy.backward()
-               # torch.nn.utils.clip_grad_norm_(self.parameters(), )
                 optim.step()
 
                 lossap.append(energy.detach().item())

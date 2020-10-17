@@ -56,28 +56,32 @@ class ProposalSCM():
         self.model = deepcopy(model)
         self.omodelX = modelX
         self.modelX = deepcopy(modelX)
-        self.optim = torch.optim.Adam(
+        self.optim = torch.optim.AdamW(
             list(self.model.parameters()) + list(self.modelX.parameters()), lr=lr)
-        self.optimX = torch.optim.Adam(
+        self.optimX = torch.optim.AdamW(
             self.modelX.parameters(),
-            lr=lr)
+            lr=lr*100)
         self.accumulation = torch.zeros((1,1))
         self.lr = lr
         self.method=method
         self.iit = finetune
+        self.lftune = []
+        self.xlftune = []
 
     def copy(self):
         self.model = deepcopy(self.omodel)
         self.modelX = deepcopy(self.omodelX)
         self.accumulation = torch.zeros((1,1))
-        self.optim = torch.optim.Adam(
+        self.optim = torch.optim.AdamW(
             self.model.parameters(),
             lr=self.lr)
-        self.optimX = torch.optim.Adam(
+        self.optimX = torch.optim.AdamW(
             self.modelX.parameters(),
-            lr=self.lr)
+            lr=self.lr*100)
 
     def fit(self,X_train,Y_train):
+
+        lftune = []
 
         for i in range(self.iit):
             x_h = self.modelX.forward(X_train)
@@ -87,8 +91,13 @@ class ProposalSCM():
 
             self.optimX.zero_grad()
             energyx.backward()
+            #torch.nn.utils.clip_grad_norm_(self.modelX.parameters(), 0.1)
             self.optimX.step()
+            lftune.append(energyx.detach().item())
 
+        self.xlftune.append(lftune)
+
+        lftune = []
 
         for i in range(self.iit):
 
@@ -99,10 +108,15 @@ class ProposalSCM():
 
             self.optim.zero_grad()
             energyyx.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
             self.optim.step()
+            lftune.append(energyyx.detach().item())
+
+
 
         r = -energyyx.detach() - energyx.detach()
         #self.accumulation += r
+        self.lftune.append(lftune)
 
         return r
 
@@ -127,6 +141,7 @@ class ProposalSCM():
             energy = energy + energyx
             score = sc + scx
 
+
             th = torch.tensor(20,dtype=torch.float32)
             score = torch.minimum(score, th)
             energy = torch.minimum(energy, th)
@@ -137,6 +152,8 @@ class ProposalSCM():
 
             cum -= score.detach()
         #print("#####")
+
+
         return cum
 
         #return self.accumulation
@@ -194,7 +211,13 @@ def meta_objective(transfer,
 
         pb = gamma.sigmoid()
 
-        regret = - torch.log( 1e-7 + pb * scmxy.online_likelihood(X_train,Y_train).exp() + (1 - pb) * scmyx.online_likelihood(Y_train,X_train).exp() )
+        pxy = scmxy.online_likelihood(X_train,Y_train).exp()
+        pyx = scmyx.online_likelihood(Y_train,X_train).exp()
+
+        #print( "pxy" + str(pxy) )
+        #print( "pyx" + str(pyx) )
+
+        regret = - torch.log( 1e-7 + pb * pxy + (1 - pb) * pyx )
         #print("regret")
         #print(regret)
 
