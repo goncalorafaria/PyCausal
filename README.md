@@ -66,6 +66,23 @@ Y.independent_of(Ny, significance=0.05)
 ```
 False
 ```
+We can actually define custom operations using ```func```, and define matrix variables and assignments. 
+
+```
+model = SCM("Matrix assignments model")
+
+
+new_op = func( jax.nn.softmax, name="softmax")
+
+X = Variable("X", stats.uniform(-2,5), shape=[2,2])
+Ny = HiddenVariable("Ny",stats.beta(0.4,0.1), shape=[1,1])
+
+y2 = -(sin(X)*2)@np.ones(shape=[2,2])
+y3 = new_op(y2)
+
+Y = reduce_sum(y3 + Ny, axis=[-1,-2], keepdims=False) << "Y"
+
+```
 
 #### install :~
 python3 setup.py sdist bdist_wheel
