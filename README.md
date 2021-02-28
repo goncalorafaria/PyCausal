@@ -57,7 +57,7 @@ Y.sample(2)
 array([ 2.64181855, 17.87651557])
 ```
 
-Or do independence tests. 
+Or do independence tests(based on samples or graphical). 
 
 ```python
 Y.independent_of(Ny, significance=0.05)
