@@ -54,7 +54,17 @@ Y.sample(2)
 ```
 #### output:
 ```
- array([ 2.64181855, 17.87651557]) 
+array([ 2.64181855, 17.87651557])
+```
+
+Or do independence tests/ conditional independence tests. 
+
+```python
+Y.independent_of(Ny, significance=0.05)
+```
+#### output:
+```
+False
 ```
 
 

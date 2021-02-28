@@ -1,4 +1,4 @@
-import numpy as np
+import jax.numpy as np
 from scipy.stats import gamma
 
 
@@ -98,8 +98,7 @@ def hsic_gam(X, Y, alph = 0.5):
     return (testStat, thresh)
 
 def independence(x, y, alpha=0.05):
-    if( not isinstance(x, (np.ndarray, np.generic) ) ):
-        testStat, thresh = hsic_gam(x.detach().numpy(),y.detach().numpy(),alpha)
-    else:
-        testStat, thresh = hsic_gam(x,y,alpha)
+
+    testStat, thresh = hsic_gam(x,y,alpha)
+    
     return testStat < thresh
