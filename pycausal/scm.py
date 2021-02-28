@@ -3,6 +3,7 @@ from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
+from copy import copy
 import jax.numpy as np
 import pickle
 import sys
@@ -104,6 +105,12 @@ class SCM(Named):
     def sample(self,size):
         return self.sample_cached({}, size)
 
+    def __invert__(self):
+        return self.sample
+
+    def __and__(self, given):
+        return InterventionalConstruct(name="i:"+self.name, func=self.intervention, given=given)
+
     def save(self,path):
         with open(path,"wb") as fp:
             pickle.dump(self,fp)
@@ -188,6 +195,25 @@ class SCM(Named):
             )
         )
 
+class InterventionalConstruct(Named):
+    def __init__(self,
+                 name,
+                 func,
+                 given={}):
+        super(InterventionalConstruct, self).__init__(name)
+        self.given = given
+        self.func = func
+
+    def __call__(self, size):
+        return self.func(self.given, size)
+
+    def __and__(self, ngiven):
+        d = copy(self.given)
+        for k,v in ngiven.items():
+            d[k] = v
+        
+        return InterventionalConstruct(name="i:"+self.name, func=self.func, given=d)
+                 
 class RandomVariable(Named):
     def __init__(self,
                  name,
@@ -216,6 +242,9 @@ class RandomVariable(Named):
 
     def __neg__(self):
         return negative(self)
+
+    def __invert__(self):
+        return self.sample
 
     def __lshift__(self, name):#<<
         return self.mark(name)
@@ -272,6 +301,9 @@ class RandomVariable(Named):
     
     def independent_of(self, rv, size=500, significance=0.05):
         return self.conditional_independent_of(rv,{},size,significance)
+
+    def __or__(self, value):
+        return self.independent_of(value)
 
 class AuxiliaryVariable(RandomVariable):
     def __init__(self,
