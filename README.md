@@ -54,7 +54,7 @@ Y.sample(2)
 ```
 equivalently, we can write
 ```python
-( ~X )(22)
+( ~X )(2)
 ```
 #### output:
 ```
