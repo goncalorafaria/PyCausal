@@ -37,7 +37,7 @@ model.sample(2)
 ```
 
 ```python
-model.intervention({X: np.array([0])},2)
+model.intervention({ X: 0 },2)
 ```
 
 #### output:
