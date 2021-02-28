@@ -1,5 +1,5 @@
 # PyCausal - Causal Inference and Reasoning in Python
-Package for defining large scale Structural Causal Models(SCMs), interventions and sampling from them using XLA.
+Package for defining large scale Structural Causal Models(SCMs), interventions and sampling from them using JAX.
 
 ### Example
 
