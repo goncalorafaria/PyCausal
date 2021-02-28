@@ -3,22 +3,19 @@ from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
-import numpy as np
+import jax.numpy as np
+import pickle
+import sys
 
 def Variable(name, dist, shape=[1]):
-    arv = AncestorRandomVariable(name, dist, shape)
+    arv = SourceRandomVariable(name, dist, shape)
     SCM.model.addVariable(arv)
     return arv
 
 def HiddenVariable(name,dist, shape=[1]):
-    arv = AncestorRandomVariable(name, dist, shape, observed=False)
+    arv = SourceRandomVariable(name, dist, shape, observed=False)
     SCM.model.addVariable(arv)
     return arv
-
-def placeholder(name, shape=[1]):
-    rv = Placeholder(name, shape)
-    SCM.model.addVariable(rv)
-    return rv
 
 class SCM(Named):
 
@@ -29,7 +26,7 @@ class SCM(Named):
         self.nodes = {}
         self.ancestors = set([])
 
-        self.fix()
+        self.fix()## makes this the current model.
 
     def fix(scm):
         SCM.model = scm
@@ -53,12 +50,13 @@ class SCM(Named):
         return self.name + ":: "+ str(ls)
 
     def mark(self, name, rv):
-
+        # gives a special status to a variable which is the result of a computation. 
         assert isinstance(rv,AuxiliaryVariable), " Can't mark an Ancestor Random Variable"
 
         rv._mark()
         del self.nodes[rv.name]
-        rv.name = "M/" + name
+        #rv.name = "M/" + name
+        rv.name = name
         self.addAuxVariable(rv)
 
         return rv
@@ -99,29 +97,48 @@ class SCM(Named):
         return cache
 
     def _sample(self,size):
-        results = { n[0].uname() : n[1]
-                   for n in filter(lambda rv: rv[0].observed , self.sample_cached({},size).items()) }
+        results = { n[0].name : n[1]
+                   for n in filter(lambda rv: rv[0].observed , self.sample(size).items()) }
         return results
 
     def sample(self,size):
         return self.sample_cached({}, size)
 
-    def conditional_sampling(self, rvs, size=1):
+    def save(self,path):
+        with open(path,"wb") as fp:
+            pickle.dump(self,fp)
+
+    def load(path):
+        with open(path,"rb") as fp:
+            w = pickle.load(fp)
+
+        return w
+
+    def intervention(self, rvs, size=1):
 
         cache = {}
 
         for k, v in rvs.items():
             cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
 
-        results = { n[0].uname() : n[1] for n in
-                   filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
+        #results = { n[0] : n[1] for n in
+        #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
+        results = { n[0] : n[1] for n in
+                  filter(lambda rv: rv[0].observed, self.sample_cached(cache,size).items())  }
         return results
 
-    def draw(self):
-        plt.figure(figsize=(12,8))
+    def _intervention(self, rvs, size=1):
+
+        results = { n[0].name : n[1] for n in
+            filter(lambda rv: rv[0].observed , self.intervention(rvs,size).items())  }
+
+        return results
+
+    def draw(self, figsize=(12,8), node_size=1200 ):
+        plt.figure(figsize=figsize)
         plt.title(self.uname())
         G = self.build_causal_graph()
-        nx.draw(G,with_labels=True, arrows=True, node_size=1200)
+        nx.draw(G,with_labels=True, arrows=True, node_size=node_size)
         plt.show()
 
 
@@ -137,7 +154,7 @@ class SCM(Named):
 
         for n in self.nodes.values():
             if n.observed :
-                G.add_node(n.uname())
+                G.add_node(n.name)
 
         tested = set([])
 
@@ -148,7 +165,7 @@ class SCM(Named):
             lrv = rv.reach()
 
             for n in lrv:
-                G.add_edge(rv.uname(), n.uname())
+                G.add_edge(rv.name, n.name)
 
                 if n not in tested :
                     q.put(n)
@@ -157,17 +174,16 @@ class SCM(Named):
 
     def getMarked(self):
         return list(
-            map( lambda x : x.uname(),
+            map( lambda x : x.name,
                 filter( lambda x : x.observed ,self.nodes.values())
             )
         )
-
 
 class RandomVariable(Named):
     def __init__(self,
                  name,
                  observed):
-        super(RandomVariable, self).__init__("RV/"+name)
+        super(RandomVariable, self).__init__(name)
         self.outbound = set([])
         self.observed = observed
 
@@ -176,6 +192,51 @@ class RandomVariable(Named):
 
     def _mark(self):
         self.observed = True
+
+    def __add__(self,rv):#+
+        return add(self,rv)
+
+    def __radd__(self,rv):#+
+        return add(self,rv)
+
+    def __sub__(self,rv):#-
+        return subtract(self,rv)
+
+    def __rsub__(self,rv):#-
+        return subtract(rv, self)
+
+    def __neg__(self):
+        return negative(self)
+
+    def __lshift__(self, name):#<<
+        return self.mark(name)
+
+    def __mul__(self,rv):# *
+        if isinstance(rv,RandomVariable) :
+            return multiply(self,rv)
+        else:
+            return scale(rv,self)
+
+    def __rmul__(self,rv):# *
+        if isinstance(rv, RandomVariable) :
+            return multiply(self,rv)
+        else:
+            return scale(rv,self)
+
+    def __matmul__(self, rv):
+        return matmul(self,rv)
+
+    def __rmatmul__(self, rv):
+        return matmul(rv,self)
+    
+    def __pow__(self,rv):# **
+        return power(self,rv)
+
+    def __truediv__(self,rv):#/
+        if isinstance(rv,RandomVariable) :
+            return divide(self,rv)
+        else:
+            return scale(1/rv, self)
 
     def mark(self):
         self._mark()
@@ -245,20 +306,20 @@ class AuxiliaryVariable(RandomVariable):
 
         return z
 
-
-class AncestorRandomVariable(RandomVariable):
+class SourceRandomVariable(RandomVariable):##SourceRandomVariable
     def __init__(self,
                  name,
                  sampler,
                  shape,
                  observed=True):
-        super(AncestorRandomVariable,self).__init__(name,
+        super(SourceRandomVariable,self).__init__(name,
                                             observed)
-        self.sampler=sampler
-        self.shape = shape
-
+        self.sampler = sampler
+        self.shape = list(shape)
+    
     def sample(self, size=1):
-        return self.sampler.rvs(size).reshape([size]+self.shape)
+        shp = [size]+self.shape
+        return np.array(self.sampler.rvs(shp).reshape(shp))
 
     def conditional_sampling(self, given, size):
         if self in given.keys():
@@ -274,14 +335,201 @@ class AncestorRandomVariable(RandomVariable):
             rvs[self]=r
             return rvs
 
-class Placeholder(AncestorRandomVariable):
-    def __init__(self,
-                 name,
-                 shape):
-        super(Placeholder, self).__init__(name, None,shape,True)
+class Operation(Named):
 
+    def __init__(self,name):
+
+        super(Operation,self).__init__(name="Operation/"+name)
+        self.op = name
+
+    def _apply(self, tensor):
+        pass
+
+    def __call(self, scm, rvars ):
+        pass
+
+    def __str__(self):
+        return str(id(self))
+
+class UnitaryOperation(Operation):
+    def __init__(self,name,function):
+
+        super(UnitaryOperation, self).__init__(name)
+        self.function=function
+
+    def __call__(self, rvar):
+        scm = SCM.model
+        nrvar = AuxiliaryVariable(
+                "transform/"+ self.name +
+                "w/" + rvar.name+"//id:" + str(self),
+                self,
+                [rvar])
+
+        rvar.addChildren([nrvar])
+
+        scm.addAuxVariable(nrvar)
+
+        return nrvar
+
+    def _apply(self, tensors):
+        try:
+            return self.function(tensors[0])
+        except FloatingPointError:
+            print("Numeric error sampling. - " + str(self.function), file=sys.stderr)
+            raise
+
+class BinaryOperation(Operation):
+    def __init__(self, name, function):
+
+        super(BinaryOperation, self).__init__(name)
+        self.function = function
+
+    def __call__(self, rvar1, rvar2):
+
+        scm = SCM.model
+        nrvar = AuxiliaryVariable("combine/"+
+                              self.name + "w/" + rvar1.name + "&&" + rvar2.name +
+                              "//id:" + str(self),
+                              self,
+                              [rvar1,rvar2])
+
+        rvar1.addChildren([nrvar])
+        rvar2.addChildren([nrvar])
+
+        scm.addAuxVariable(nrvar)
+        return nrvar
+
+    def _apply(self, tensors):
+        try:
+            return self.function(tensors[0], tensors[1])
+        except FloatingPointError:
+            print("Numeric error sampling. -"+ str(self.function), file=sys.stderr)
+            raise
+
+## Function definitions.
+
+def exp(nrv):
+    op = UnitaryOperation("exp",np.exp)
+    return op.__call__(nrv)
+
+def log(nrv):
+    op = UnitaryOperation("log",np.log)
+    return op.__call__(nrv)
+
+def reduce_sum(nrv, axis=None, keepdims=True):
+    f = lambda rv: np.sum(rv, axis=axis, keepdims=keepdims)
+    op = UnitaryOperation("sum",f)
+    return op.__call__(nrv)
+
+def reduce_mean(nrv, axis=None, keepdims=True):
+    f = lambda rv: np.mean(rv, axis=axis, keepdims=keepdims)
+    op = UnitaryOperation("mean",f)
+    return op.__call__(nrv)
+
+def reduce_prod(nrv, axis=None, keepdims=True):
+    f = lambda rv: np.prod(rv, axis=axis, keepdims=keepdims)
+    op = UnitaryOperation("prod",f)
+    return op.__call__(nrv)
     
-    def sample(self,size):
-        msg = "Placeholders can not be directly sampled because their distribution is unknown. To sample graphical models with placeholders you have to conditionally sample and determine which values to give to the placeholders "
-        print(msg, err)
+def negative(nrv):
+    op = UnitaryOperation("neg",np.negative)
+    return op.__call__( nrv)
 
+def sqrt(nrv):
+    op = UnitaryOperation("sqrt",np.sqrt)
+    return op.__call__( nrv)
+
+def square(nrv):
+    op = UnitaryOperation("square",np.square)
+    return op.__call__( nrv)
+
+def func(f,name="custom"):
+    op = UnitaryOperation(name,f)
+    return lambda rv: op.__call__(rv)    
+
+def power(nrv, n):
+    if isinstance(n, RandomVariable) :
+        op = BinaryOperation("pow", np.power)
+        return op.__call__(nrv, n)
+    else:
+        f = lambda rv: np.power(rv,n)
+        op = UnitaryOperation("power", f)
+        return op.__call__(nrv)
+
+def sin(nrv):
+    op = UnitaryOperation("sin",np.sin)
+    return op.__call__( nrv)
+
+def cos(nrv):
+    op = UnitaryOperation("cos",np.cos)
+    return op.__call__( nrv)
+
+def tan(nrv):
+    op = UnitaryOperation("tan",np.tan)
+    return op.__call__( nrv)
+
+def scale(a,b):
+    if isinstance(a, RandomVariable):
+        rv = a
+        s = b
+    else:
+        rv = b
+        s = a
+
+    f = lambda rv: np.multiply(s, rv)
+    op = UnitaryOperation("scale",f)
+    return op.__call__(rv)
+
+def add(nrv, nrv2):
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("add", np.add)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        f = lambda rv: np.add(rv, nrv2)
+        rv = nrv
+    else:
+        f = lambda rv: np.add(nrv, rv)
+        rv = nrv2
+
+    op = UnitaryOperation("cadd",f)
+    return op.__call__(rv)
+
+def subtract(nrv, nrv2):
+    return add(nrv, negative(nrv2))
+
+def multiply(nrv, nrv2):
+    op = BinaryOperation("mul", np.multiply)
+    return op.__call__( nrv, nrv2)
+
+def inverse(nrv):
+    f = lambda rv: np.divide(1.0, rv)
+    op = UnitaryOperation("inverse", f)
+    return op.__call__(nrv)
+
+def matmul(nrv, nrv2):
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("matmul", np.matmul)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        f = lambda rv: np.matmul(rv, nrv2)
+        rv = nrv
+    else:
+        f = lambda rv: np.matmul(nrv, rv)
+        rv = nrv2
+
+    op = UnitaryOperation("cmatmul",f)
+    return op.__call__(rv)
+
+def divide(nrv, nrv2):
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("div", np.divide)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        f = lambda rv: np.divide(rv, nrv2)
+        rv = nrv
+    else:
+        f = lambda rv: np.divide(nrv, rv)
+        rv = nrv2
+
+    op = UnitaryOperation("cdiv",f)
+    return op.__call__(rv)

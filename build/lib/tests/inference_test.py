@@ -1,8 +1,6 @@
 from pycausal import *
-from pycausal.inference import binary_causal_discovery, independence, fit_conditional_and_test
-from pycausal.math import UnitaryOperation
-from scipy import stats
-
+#from pycausal.inference import binary_causal_discovery, independence, fit_conditional_and_test
+#from pycausal.math import UnitaryOperation
 
 ## Dificult model.
 
@@ -28,6 +26,16 @@ Y = add( square(X), Ny).mark("Y")
 
 #modeleasy.draw()
 
+
+
+## test MDN.
+
+from pycausal import models
+
+me = models.MDN([1,36],36)
+
+me.fit(modeleasy)
+
 #model.draw_complete()
 
 #plt.hist(Z.sample(200),bins=50)
@@ -41,9 +49,7 @@ for i in range(6):
     for j in [0,1]:
         data = models[j]._sample(trial)
         scm = binary_causal_discovery(data["Y"],data["X"],"Y","X")
-        
-        print(scm)
-       
+
         if j == 0:
             if scm is None:
                 print("easy model failed.")

@@ -142,7 +142,7 @@ class ProposalSCM():
             score = sc + scx
 
 
-            th = torch.tensor(20,dtype=torch.float32)
+            th = torch.tensor(30,dtype=torch.float32)
             score = torch.minimum(score, th)
             energy = torch.minimum(energy, th)
 
@@ -231,6 +231,86 @@ def meta_objective(transfer,
 
     return tpaths, np.array(gpath).ravel()
 
+
+def mine_meta_objective(transfer,
+             features,
+             labels,
+             modelxx,
+             modelxy,
+             modelyy,
+             modelyx,
+             steps=15,
+             episodes=300,
+             lr = 1e-3,
+             metalr = 1e-2,
+             finetune=10):
+
+    tpaths = {}
+
+    scmxy = ProposalSCM(modelxx, modelxy, lr, finetune, method="MAP")
+    scmyx = ProposalSCM(modelyy, modelyx, lr, finetune,method="MAP")
+
+    ## setup meta model.
+    gamma = torch.nn.parameter.Parameter(torch.zeros((1,1)))
+
+    optimizer = torch.optim.SGD(
+              [ gamma ], lr=metalr, momentum=0.98)
+
+    gpath = []
+    lpxy = []
+    lpyx = []
+
+    for e in range(episodes):
+        ## setup new model
+        scmxy.copy()
+        scmyx.copy()
+
+        tpaths[e] = []
+
+        ## prepare dataset
+        batch = steps
+        dt = transfer._sample(batch)
+
+        X_train = dt["X"].view(-1,1)
+        Y_train = dt["Y"].view(-1,1)
+
+        beforexy = scmxy.online_likelihood(X_train,Y_train)
+        beforeyx = scmyx.online_likelihood(Y_train,X_train)
+
+        energyxy = scmxy.fit(X_train, Y_train)
+        energyyx = scmyx.fit(Y_train, X_train)
+
+        energy = energyxy - energyyx
+        tpaths[e].append(energy.numpy())
+
+        pb = gamma.sigmoid()
+
+        pxy = scmxy.online_likelihood(X_train,Y_train)
+        pyx = scmyx.online_likelihood(Y_train,X_train)
+
+
+        logadxy = (beforexy - pxy).exp()
+        logadyx = (beforeyx - pyx).exp()
+
+        #print( "pxy" + str(pxy) )
+        #print( "pyx" + str(pyx) )
+        lpxy.append(logadxy )
+        lpyx.append(logadyx)
+
+        regret = - torch.log( 1e-7 + pb * logadxy + (1 - pb) * logadyx )
+        #print("regret")
+        #print(regret)
+
+        optimizer.zero_grad()
+        regret.backward()
+        optimizer.step()
+
+        tpaths[e] = np.stack(tpaths[e])
+
+        gpath.append(pb.detach().numpy())
+
+        return tpaths, np.array(gpath).ravel()
+
 def binary_causal_inference_with_interventions(
             base,
             transfer,
@@ -256,7 +336,7 @@ def binary_causal_inference_with_interventions(
     print( ( np.array(lossxy) + np.array(lossxx) )[-1])
     print( ( np.array(lossyx) + np.array(lossyy) )[-1])
 
-    _, g = meta_objective(transfer, A, B, modelxx, modelxy, modelyy, modelyx,
+    _, g = mine_meta_objective(transfer, A, B, modelxx, modelxy, modelyy, modelyx,
                 lr=lr, metalr=metalr, episodes=episodes,
                 steps=steps, finetune=finetune)
 

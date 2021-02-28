@@ -3,7 +3,7 @@ from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
-import torch
+import jax.numpy as np
 import pickle
 import sys
 
@@ -17,11 +17,6 @@ def HiddenVariable(name,dist, shape=[1]):
     SCM.model.addVariable(arv)
     return arv
 
-def placeholder(name, shape=[1]):
-    rv = Placeholder(name, shape)
-    SCM.model.addVariable(rv)
-    return rv
-
 class SCM(Named):
 
     def __init__(self,
@@ -31,7 +26,7 @@ class SCM(Named):
         self.nodes = {}
         self.ancestors = set([])
 
-        self.fix()
+        self.fix()## makes this the current model.
 
     def fix(scm):
         SCM.model = scm
@@ -55,7 +50,7 @@ class SCM(Named):
         return self.name + ":: "+ str(ls)
 
     def mark(self, name, rv):
-
+        # gives a special status to a variable which is the result of a computation. 
         assert isinstance(rv,AuxiliaryVariable), " Can't mark an Ancestor Random Variable"
 
         rv._mark()
@@ -113,32 +108,29 @@ class SCM(Named):
         with open(path,"wb") as fp:
             pickle.dump(self,fp)
 
-    def intervene(self, rvs):
-        return InterventionSCM(self,rvs)
-
     def load(path):
         with open(path,"rb") as fp:
             w = pickle.load(fp)
 
         return w
 
-    def conditional_sampling(self, rvs, size=1):
+    def intervention(self, rvs, size=1):
 
         cache = {}
 
         for k, v in rvs.items():
-            cache[k] = v.view([1]+list(v.shape)).repeat([size]+len(v.shape)*[1])
+            cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
 
         #results = { n[0] : n[1] for n in
         #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
         results = { n[0] : n[1] for n in
-                  filter(lambda rv: rv[0].observed or  isinstance(rv[0],Placeholder), self.sample_cached(cache,size).items())  }
+                  filter(lambda rv: rv[0].observed, self.sample_cached(cache,size).items())  }
         return results
 
-    def _conditional_sampling(self, rvs, size=1):
+    def _intervention(self, rvs, size=1):
 
         results = { n[0].name : n[1] for n in
-            filter(lambda rv: rv[0].observed , self._conditional_sampling(rvs,size).items())  }
+            filter(lambda rv: rv[0].observed , self.intervention(rvs,size).items())  }
 
         return results
 
@@ -187,28 +179,6 @@ class SCM(Named):
             )
         )
 
-class InterventionSCM(SCM):
-    def __init__(self,
-                 scm,
-                 rvs):
-
-        super(InterventionSCM, self).__init__(name="I"+scm.uname())
-        self.nodes = scm.nodes
-        self.ancestors = scm.ancestors
-        self.rvs = rvs
-
-    def sample(self,size=1):
-        cache = {}
-        for rv,val in self.rvs.items():
-            if isinstance(rv,RandomVariable):
-                s = val.sample(1)[0]
-                cache[rv] = s
-                cache[val] = s
-            else:
-                cache[rv] =  val
-
-        return self.conditional_sampling(cache,size)
-
 class RandomVariable(Named):
     def __init__(self,
                  name,
@@ -223,23 +193,46 @@ class RandomVariable(Named):
     def _mark(self):
         self.observed = True
 
-    def __add__(self,rv):
+    def __add__(self,rv):#+
         return add(self,rv)
 
-    def __sub__(self,rv):
+    def __radd__(self,rv):#+
+        return add(self,rv)
+
+    def __sub__(self,rv):#-
         return subtract(self,rv)
-    def __lshift__(self, name):
+
+    def __rsub__(self,rv):#-
+        return subtract(rv, self)
+
+    def __neg__(self):
+        return negative(self)
+
+    def __lshift__(self, name):#<<
         return self.mark(name)
-    def __mul__(self,rv):
+
+    def __mul__(self,rv):# *
         if isinstance(rv,RandomVariable) :
             return multiply(self,rv)
         else:
             return scale(rv,self)
 
-    def __pow__(self,rv):
+    def __rmul__(self,rv):# *
+        if isinstance(rv, RandomVariable) :
+            return multiply(self,rv)
+        else:
+            return scale(rv,self)
+
+    def __matmul__(self, rv):
+        return matmul(self,rv)
+
+    def __rmatmul__(self, rv):
+        return matmul(rv,self)
+    
+    def __pow__(self,rv):# **
         return power(self,rv)
 
-    def __truediv__(self,rv):
+    def __truediv__(self,rv):#/
         if isinstance(rv,RandomVariable) :
             return divide(self,rv)
         else:
@@ -290,7 +283,7 @@ class AuxiliaryVariable(RandomVariable):
         cache = {}
 
         for k, v in given.items():
-            cache[k] = v.view([1]+list(v.shape)).repeat([size]+len(v.shape)*[1])
+            cache[k] = np.tile(v.reshape([1]+list(v.shape) ),[size]+len(v.shape)*[1])
 
         return self.sampling_cached(cache, size)[self]
 
@@ -321,16 +314,16 @@ class SourceRandomVariable(RandomVariable):##SourceRandomVariable
                  observed=True):
         super(SourceRandomVariable,self).__init__(name,
                                             observed)
-        self.sampler=sampler
-        self.shape = shape
-
+        self.sampler = sampler
+        self.shape = list(shape)
+    
     def sample(self, size=1):
-        return torch.tensor(
-            self.sampler.rvs(size),dtype=torch.float32).view([size]+self.shape)
+        shp = [size]+self.shape
+        return np.array(self.sampler.rvs(shp).reshape(shp))
 
     def conditional_sampling(self, given, size):
         if self in given.keys():
-            return given[self].view([1]+self.shape).repeat([size]+len(self.shape)*[1])
+            return np.tile(given[self].reshape([1]+self.shape), [size]+len(self.shape)*[1])
         else:
             return self.sample(size)
 
@@ -341,17 +334,6 @@ class SourceRandomVariable(RandomVariable):##SourceRandomVariable
             r = self.sample(size)
             rvs[self]=r
             return rvs
-
-class Placeholder(SourceRandomVariable):
-    def __init__(self,
-                 name,
-                 shape):
-        super(Placeholder, self).__init__(name, None,shape,False)
-
-
-    def sample(self,size):
-        msg = "Placeholders can not be directly sampled because their distribution is unknown. To sample graphical models with placeholders you have to conditionally sample and determine which values to give to the placeholders "
-        print(msg, err)
 
 class Operation(Named):
 
@@ -424,58 +406,66 @@ class BinaryOperation(Operation):
             print("Numeric error sampling. -"+ str(self.function), file=sys.stderr)
             raise
 
-class UOneArgOperation(UnitaryOperation):
-    def __init__(self,name,function, arg):
-        super(UOneArgOperation, self).__init__(name,function)
-        self.arg=arg
-
-    def _apply(self, tensors):
-        try:
-            return self.function(tensors[0],self.arg)
-        except FloatingPointError:
-            print("Numeric error sampling. -" + str(self.function), file=sys.stderr)
-            raise
-
 ## Function definitions.
 
 def exp(nrv):
-    op = UnitaryOperation("exp",torch.exp)
+    op = UnitaryOperation("exp",np.exp)
     return op.__call__(nrv)
 
 def log(nrv):
-    op = UnitaryOperation("log",torch.log)
+    op = UnitaryOperation("log",np.log)
     return op.__call__(nrv)
 
+def reduce_sum(nrv, axis=None, keepdims=True):
+    f = lambda rv: np.sum(rv, axis=axis, keepdims=keepdims)
+    op = UnitaryOperation("sum",f)
+    return op.__call__(nrv)
+
+def reduce_mean(nrv, axis=None, keepdims=True):
+    f = lambda rv: np.mean(rv, axis=axis, keepdims=keepdims)
+    op = UnitaryOperation("mean",f)
+    return op.__call__(nrv)
+
+def reduce_prod(nrv, axis=None, keepdims=True):
+    f = lambda rv: np.prod(rv, axis=axis, keepdims=keepdims)
+    op = UnitaryOperation("prod",f)
+    return op.__call__(nrv)
+    
 def negative(nrv):
-    op = UnitaryOperation("neg",torch.negative)
+    op = UnitaryOperation("neg",np.negative)
     return op.__call__( nrv)
 
 def sqrt(nrv):
-    op = UnitaryOperation("sqrt",torch.sqrt)
+    op = UnitaryOperation("sqrt",np.sqrt)
     return op.__call__( nrv)
 
 def square(nrv):
-    op = UnitaryOperation("square",torch.square)
+    op = UnitaryOperation("square",np.square)
     return op.__call__( nrv)
+
+def func(f,name="custom"):
+    op = UnitaryOperation(name,f)
+    return lambda rv: op.__call__(rv)    
 
 def power(nrv, n):
     if isinstance(n, RandomVariable) :
-        op = BinaryOperation("pow", torch.pow)
+        op = BinaryOperation("pow", np.power)
         return op.__call__(nrv, n)
     else:
-        op = UOneArgOperation("power", torch.pow, n)
+        f = lambda rv: np.power(rv,n)
+        op = UnitaryOperation("power", f)
         return op.__call__(nrv)
 
 def sin(nrv):
-    op = UnitaryOperation("sin",torch.sin)
+    op = UnitaryOperation("sin",np.sin)
     return op.__call__( nrv)
 
 def cos(nrv):
-    op = UnitaryOperation("cos",torch.cos)
+    op = UnitaryOperation("cos",np.cos)
     return op.__call__( nrv)
 
 def tan(nrv):
-    op = UnitaryOperation("tan",torch.tan)
+    op = UnitaryOperation("tan",np.tan)
     return op.__call__( nrv)
 
 def scale(a,b):
@@ -485,39 +475,61 @@ def scale(a,b):
     else:
         rv = b
         s = a
-    op =  UOneArgOperation("scale", torch.multiply, s)
-    return op.__call__( rv)
+
+    f = lambda rv: np.multiply(s, rv)
+    op = UnitaryOperation("scale",f)
+    return op.__call__(rv)
 
 def add(nrv, nrv2):
     if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
-        op = BinaryOperation("add", torch.add)
+        op = BinaryOperation("add", np.add)
         return op.__call__( nrv, nrv2)
     elif isinstance(nrv, RandomVariable):
-        c = nrv2
+        f = lambda rv: np.add(rv, nrv2)
         rv = nrv
     else:
-        c = nrv
+        f = lambda rv: np.add(nrv, rv)
         rv = nrv2
 
-    op = UOneArgOperation("addconstant", torch.add, c)
-
+    op = UnitaryOperation("cadd",f)
     return op.__call__(rv)
 
 def subtract(nrv, nrv2):
     return add(nrv, negative(nrv2))
 
 def multiply(nrv, nrv2):
-    op = BinaryOperation("mul", torch.multiply)
+    op = BinaryOperation("mul", np.multiply)
     return op.__call__( nrv, nrv2)
 
 def inverse(nrv):
-    op = UOneArgOperation("inverse", torch.divide, 1)
+    f = lambda rv: np.divide(1.0, rv)
+    op = UnitaryOperation("inverse", f)
     return op.__call__(nrv)
 
 def matmul(nrv, nrv2):
-    op = BinaryOperation("matmul",torch.matmul)
-    return op.__call__( nrv, nrv2)
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("matmul", np.matmul)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        f = lambda rv: np.matmul(rv, nrv2)
+        rv = nrv
+    else:
+        f = lambda rv: np.matmul(nrv, rv)
+        rv = nrv2
+
+    op = UnitaryOperation("cmatmul",f)
+    return op.__call__(rv)
 
 def divide(nrv, nrv2):
-    op = BinaryOperation("div", torch.divide)
-    return op.__call__( nrv, nrv2)
+    if isinstance(nrv, RandomVariable) and isinstance(nrv2,RandomVariable):
+        op = BinaryOperation("div", np.divide)
+        return op.__call__( nrv, nrv2)
+    elif isinstance(nrv, RandomVariable):
+        f = lambda rv: np.divide(rv, nrv2)
+        rv = nrv
+    else:
+        f = lambda rv: np.divide(nrv, rv)
+        rv = nrv2
+
+    op = UnitaryOperation("cdiv",f)
+    return op.__call__(rv)

@@ -17,7 +17,6 @@ Description: # PyCausal - Causal Inference and Reasoning in Python
         #### Code
         ```python
         from pycausal import *
-        from scipy import stats
         
         model = SCM("Simple Causal Graph")
         
@@ -26,8 +25,7 @@ Description: # PyCausal - Causal Inference and Reasoning in Python
         
         Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
         
-        NyZ = multiply(Ny,Z)
-        Y = add(NyZ, exp(square(X))).mark("Y")
+        Y = Ny * Z + exp( X**2 ) << "Y"
         
         model.draw()
         ```
