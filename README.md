@@ -68,7 +68,7 @@ Y.independent_of(Ny, significance=0.05)
 ```
 equivalently, we can write
 ```python
-Y |= Ny
+Y | Ny
 ```
 #### output:
 ```
