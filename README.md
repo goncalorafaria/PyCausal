@@ -45,7 +45,11 @@ or
 ```python
 model.intervention({ X: 0 },2)
 ```
-
+or 
+```python
+imodel = model&{ X: 0 }
+imodel(2)
+```
 #### output:
 ```
 {'X': array([0, 0]), 
