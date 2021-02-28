@@ -116,6 +116,15 @@ class SCM(Named):
 
     def intervention(self, rvs, size=1):
 
+        vs = {}
+        for k,v in rvs.items():
+
+            if isinstance(v, (int, float, complex)):
+                vs[k] = np.ones(k.shape)*v
+            else:
+                vs[k] = v
+
+        rvs = vs
         cache = {}
 
         for k, v in rvs.items():
@@ -261,7 +270,7 @@ class RandomVariable(Named):
 
         return independence(me, other, significance)
     """
-    
+
     def independent_of(self, rv, size=500, significance=0.05):
         return self.conditional_independent_of(rv,{},size,significance)
 
