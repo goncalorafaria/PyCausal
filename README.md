@@ -68,7 +68,7 @@ Y.independent_of(Ny, significance=0.05)
 ```
 equivalently, we can write
 ```python
-(Y | Ny)(significance=0.05)
+(Y |= Ny)(significance=0.05)
 ```
 #### output:
 ```
