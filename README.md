@@ -1,5 +1,5 @@
 # PyCausal - Causal Inference and Reasoning in Python
-Package for defining Structural Causal Models and for Structure Identification from data.
+Package for defining large scale Structural Causal Models(SCMs) and sampling from them using XLA.
 
 ### Example
 
@@ -17,7 +17,7 @@ Z = Variable("Z", stats.beta(0.5,0.5))
 
 Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
 
-Y = Ny * Z + exp( X**2 ) << "Y"
+Y = - Ny * Z + exp( X**2 ) << "Y"
 
 model.draw()
 ```
@@ -37,7 +37,7 @@ model.sample(2)
 ```
 
 ```python
-model.conditional_sampling({X: np.array([0])},2)
+model.intervention({X: np.array([0])},2)
 ```
 
 #### output:
@@ -47,7 +47,19 @@ model.conditional_sampling({X: np.array([0])},2)
  'Y': array([1.42016021, 0.86607793]) }
  ```
 
-We can also sample variables instead of the full model.
+We can also sample specific variables instead of the full model.
+
+```python
+Y.sample(2)
+```
+#### output:
+```
+ array([ 2.64181855, 17.87651557]) 
+```
+
+
+
+
 #### install :~
 //python3 setup.py sdist bdist_wheel
 
