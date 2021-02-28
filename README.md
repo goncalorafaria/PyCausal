@@ -52,6 +52,10 @@ We can also sample specific variables instead of the full model.
 ```python
 Y.sample(2)
 ```
+equivalently, we can write
+```python
+( ~X )(22)
+```
 #### output:
 ```
 array([ 2.64181855, 17.87651557])
@@ -61,6 +65,10 @@ Or do independence tests(based on samples or graphical).
 
 ```python
 Y.independent_of(Ny, significance=0.05)
+```
+equivalently, we can write
+```python
+(Y | Ny)(significance=0.05)
 ```
 #### output:
 ```
