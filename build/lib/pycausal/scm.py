@@ -251,7 +251,8 @@ class RandomVariable(Named):
             else :
                 l = l + n.reach()
         return l
-
+    
+    """
     def conditional_independent_of(self, rv, given, size=500, significance=0.05):
         cache = self.sampling_cached( given, size)
         cache = rv.sampling_cached(cache, size)
@@ -259,7 +260,8 @@ class RandomVariable(Named):
         other = cache[rv]
 
         return independence(me, other, significance)
-
+    """
+    
     def independent_of(self, rv, size=500, significance=0.05):
         return self.conditional_independent_of(rv,{},size,significance)
 

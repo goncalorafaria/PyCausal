@@ -57,7 +57,7 @@ Y.sample(2)
 array([ 2.64181855, 17.87651557])
 ```
 
-Or do independence tests/ conditional independence tests. 
+Or do independence tests. 
 
 ```python
 Y.independent_of(Ny, significance=0.05)
@@ -67,10 +67,7 @@ Y.independent_of(Ny, significance=0.05)
 False
 ```
 
-
-
-
 #### install :~
-//python3 setup.py sdist bdist_wheel
+python3 setup.py sdist bdist_wheel
 
 pip install .
