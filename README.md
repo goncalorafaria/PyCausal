@@ -82,7 +82,7 @@ False
 ```
 We can actually define custom operations using ```func```, and define matrix variables and assignments. 
 
-```
+```python
 model = SCM("Matrix assignments model")
 
 
