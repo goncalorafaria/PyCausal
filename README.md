@@ -29,6 +29,12 @@ with the corresponding graphical causal model,
 model.sample(2)
 ```
 
+or 
+
+```python
+(~model)(2)
+```
+
 #### output:
 ```
 {'Z': array([0.99181398, 0.02439115]), 
