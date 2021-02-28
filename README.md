@@ -56,6 +56,24 @@ imodel(2)
  'Z': array([0.34692997, 0.16893219]),
  'Y': array([1.42016021, 0.86607793]) }
  ```
+We can stack interventions aswell
+
+```python
+imodel = model&{ X: 0, Ny: 2}
+imodel(2)
+```
+is the same as 
+```python
+imodel = model&{X: 0}&{Ny: 2}
+imodel(2)
+```
+or
+```python
+imodel = model&{X: 0}
+jmodel = imodel&{Ny: 2}
+jmodel(2)
+```
+
 
 We can also sample specific variables instead of the full model.
 
