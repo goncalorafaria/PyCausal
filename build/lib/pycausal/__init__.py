@@ -3,7 +3,6 @@ from .scm import SCM, Variable, HiddenVariable, inverse , exp, log, negative, sq
 import pycausal.distributions as stats
 import pycausal.problems as problems
 
-from .inference import binary_causal_discovery
-from torch import tensor
 from numpy import seterr
+
 seterr(all='raise')
