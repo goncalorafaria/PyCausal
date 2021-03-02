@@ -7,7 +7,7 @@ Author: Gonçalo Faria
 Author-email: goncalorafaria@tecnico.ulisboa.pt
 License: UNKNOWN
 Description: # PyCausal - Causal Inference and Reasoning in Python
-        Package for defining large scale Structural Causal Models(SCMs) and sampling from them using XLA.
+        Package for defining large scale Structural Causal Models(SCMs), interventions and sampling from them using JAX.
         
         ### Example
         
@@ -25,7 +25,7 @@ Description: # PyCausal - Causal Inference and Reasoning in Python
         
         Ny = HiddenVariable("Ny", stats.norm(loc=0,scale=1))
         
-        Y = - Ny * Z + exp( X**2 ) << "Y"
+        Y = Ny * Z + exp( X**2 ) << "Y"
         
         model.draw()
         ```
@@ -37,6 +37,12 @@ Description: # PyCausal - Causal Inference and Reasoning in Python
         model.sample(2)
         ```
         
+        or 
+        
+        ```python
+        (~model)(2)
+        ```
+        
         #### output:
         ```
         {'Z': array([0.99181398, 0.02439115]), 
@@ -45,34 +51,81 @@ Description: # PyCausal - Causal Inference and Reasoning in Python
         ```
         
         ```python
-        model.intervention({X: np.array([0])},2)
+        model.intervention({ X: 0 },2)
         ```
-        
+        or 
+        ```python
+        imodel = model&{ X: 0 }
+        imodel(2)
+        ```
         #### output:
         ```
         {'X': array([0, 0]), 
          'Z': array([0.34692997, 0.16893219]),
          'Y': array([1.42016021, 0.86607793]) }
          ```
+        We can stack interventions aswell
+        
+        ```python
+        imodel = model&{ X: 0, Ny: 2}
+        imodel(2)
+        ```
+        is the same as 
+        ```python
+        imodel = model&{X: 0}&{Ny: 2}
+        imodel(2)
+        ```
+        or
+        ```python
+        imodel = model&{X: 0}
+        jmodel = imodel&{Ny: 2}
+        jmodel(2)
+        ```
+        
         
         We can also sample specific variables instead of the full model.
         
         ```python
         Y.sample(2)
         ```
+        equivalently, we can write
+        ```python
+        ( ~Y )(2)
+        ```
         #### output:
         ```
         array([ 2.64181855, 17.87651557])
         ```
         
-        Or do independence tests. 
+        Or do independence tests(based on samples or graphical). 
         
         ```python
         Y.independent_of(Ny, significance=0.05)
         ```
+        equivalently, we can write
+        ```python
+        Y | Ny
+        ```
         #### output:
         ```
         False
+        ```
+        We can actually define custom operations using ```func```, and define matrix variables and assignments. 
+        
+        ```python
+        model = SCM("Matrix assignments model")
+        
+        
+        new_op = func( jax.nn.softmax, name="softmax")
+        
+        X = Variable("X", stats.uniform(-2,5), shape=[2,2])
+        Ny = HiddenVariable("Ny",stats.beta(0.4,0.1), shape=[1,1])
+        
+        y2 = -(sin(X)*2)@np.ones(shape=[2,2])
+        y3 = new_op(y2)
+        
+        Y = reduce_sum(y3 + Ny, axis=[-1,-2], keepdims=False) << "Y"
+        
         ```
         
         #### install :~

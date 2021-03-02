@@ -3,6 +3,7 @@ setup.py
 pycausal/__init__.py
 pycausal/core.py
 pycausal/inference.py
+pycausal/problems.py
 pycausal/scm.py
 pycausal/stats.py
 pycausal.egg-info/PKG-INFO

@@ -3,7 +3,8 @@ from .stats import independence
 import networkx as nx
 import matplotlib.pyplot as plt
 import queue
-import jax.numpy as np
+from copy import copy
+import numpy as np
 import pickle
 import sys
 
@@ -104,6 +105,12 @@ class SCM(Named):
     def sample(self,size):
         return self.sample_cached({}, size)
 
+    def __invert__(self):
+        return self.sample
+
+    def __and__(self, given):
+        return InterventionalConstruct(name="i:"+self.name, func=self.intervention, given=given)
+
     def save(self,path):
         with open(path,"wb") as fp:
             pickle.dump(self,fp)
@@ -116,6 +123,15 @@ class SCM(Named):
 
     def intervention(self, rvs, size=1):
 
+        vs = {}
+        for k,v in rvs.items():
+
+            if isinstance(v, (int, float, complex)):
+                vs[k] = np.ones(k.shape)*v
+            else:
+                vs[k] = v
+
+        rvs = vs
         cache = {}
 
         for k, v in rvs.items():
@@ -123,9 +139,8 @@ class SCM(Named):
 
         #results = { n[0] : n[1] for n in
         #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
-        results = { n[0] : n[1] for n in
-                  filter(lambda rv: rv[0].observed, self.sample_cached(cache,size).items())  }
-        return results
+        #results = { n[0] : n[1] for n in self.sample_cached(cache,size).items() }
+        return self.sample_cached(cache,size)
 
     def _intervention(self, rvs, size=1):
 
@@ -179,6 +194,36 @@ class SCM(Named):
             )
         )
 
+class InterventionalConstruct(Named):
+    def __init__(self,
+                 name,
+                 func,
+                 given={}):
+        super(InterventionalConstruct, self).__init__(name)
+        self.given = given
+        self.func = func
+        self.sh = False
+
+    def __call__(self, size):
+        if self.sh :
+            return { k.name: v for k,v in self.func(self.given, size).items() }
+        else:
+            return self.func(self.given, size)
+
+    def __invert__(self):
+        return self.__call__
+
+    def preety(self):
+        self.sh = True
+        return self
+
+    def __and__(self, ngiven):
+        d = copy(self.given)
+        for k,v in ngiven.items():
+            d[k] = v
+        
+        return InterventionalConstruct(name="i:"+self.name, func=self.func, given=d)
+                 
 class RandomVariable(Named):
     def __init__(self,
                  name,
@@ -207,6 +252,9 @@ class RandomVariable(Named):
 
     def __neg__(self):
         return negative(self)
+
+    def __invert__(self):
+        return self.sample
 
     def __lshift__(self, name):#<<
         return self.mark(name)
@@ -252,7 +300,7 @@ class RandomVariable(Named):
                 l = l + n.reach()
         return l
     
-    """
+    
     def conditional_independent_of(self, rv, given, size=500, significance=0.05):
         cache = self.sampling_cached( given, size)
         cache = rv.sampling_cached(cache, size)
@@ -260,20 +308,24 @@ class RandomVariable(Named):
         other = cache[rv]
 
         return independence(me, other, significance)
-    """
     
     def independent_of(self, rv, size=500, significance=0.05):
         return self.conditional_independent_of(rv,{},size,significance)
+
+    def __or__(self, value):
+        return self.independent_of(value)
 
 class AuxiliaryVariable(RandomVariable):
     def __init__(self,
                  name,
                  op,
-                 inbound):
+                 inbound,
+                 shape):
         super(AuxiliaryVariable, self).__init__(name, False)
 
         self.op = op
         self.inbound = inbound
+        self.shape = shape
 
     def mark(self, name):
         return SCM.model.mark(name,self)
@@ -365,7 +417,8 @@ class UnitaryOperation(Operation):
                 "transform/"+ self.name +
                 "w/" + rvar.name+"//id:" + str(self),
                 self,
-                [rvar])
+                [rvar],
+                shape=rvar.shape)
 
         rvar.addChildren([nrvar])
 
@@ -393,7 +446,8 @@ class BinaryOperation(Operation):
                               self.name + "w/" + rvar1.name + "&&" + rvar2.name +
                               "//id:" + str(self),
                               self,
-                              [rvar1,rvar2])
+                              [rvar1,rvar2],
+                              shape=rvar1.shape)
 
         rvar1.addChildren([nrvar])
         rvar2.addChildren([nrvar])

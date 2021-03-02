@@ -4,7 +4,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import queue
 from copy import copy
-import jax.numpy as np
+import numpy as np
 import pickle
 import sys
 
@@ -139,9 +139,8 @@ class SCM(Named):
 
         #results = { n[0] : n[1] for n in
         #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
-        results = { n[0] : n[1] for n in
-                  filter(lambda rv: rv[0].observed, self.sample_cached(cache,size).items())  }
-        return results
+        #results = { n[0] : n[1] for n in self.sample_cached(cache,size).items() }
+        return self.sample_cached(cache,size)
 
     def _intervention(self, rvs, size=1):
 
@@ -203,9 +202,20 @@ class InterventionalConstruct(Named):
         super(InterventionalConstruct, self).__init__(name)
         self.given = given
         self.func = func
+        self.sh = False
 
     def __call__(self, size):
-        return self.func(self.given, size)
+        if self.sh :
+            return { k.name: v for k,v in self.func(self.given, size).items() }
+        else:
+            return self.func(self.given, size)
+
+    def __invert__(self):
+        return self.__call__
+
+    def preety(self):
+        self.sh = True
+        return self
 
     def __and__(self, ngiven):
         d = copy(self.given)
@@ -309,11 +319,13 @@ class AuxiliaryVariable(RandomVariable):
     def __init__(self,
                  name,
                  op,
-                 inbound):
+                 inbound,
+                 shape):
         super(AuxiliaryVariable, self).__init__(name, False)
 
         self.op = op
         self.inbound = inbound
+        self.shape = shape
 
     def mark(self, name):
         return SCM.model.mark(name,self)
@@ -405,7 +417,8 @@ class UnitaryOperation(Operation):
                 "transform/"+ self.name +
                 "w/" + rvar.name+"//id:" + str(self),
                 self,
-                [rvar])
+                [rvar],
+                shape=rvar.shape)
 
         rvar.addChildren([nrvar])
 
@@ -433,7 +446,8 @@ class BinaryOperation(Operation):
                               self.name + "w/" + rvar1.name + "&&" + rvar2.name +
                               "//id:" + str(self),
                               self,
-                              [rvar1,rvar2])
+                              [rvar1,rvar2],
+                              shape=rvar1.shape)
 
         rvar1.addChildren([nrvar])
         rvar2.addChildren([nrvar])
