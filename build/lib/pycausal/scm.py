@@ -7,6 +7,7 @@ from copy import copy
 import numpy as np
 import pickle
 import sys
+from scipy.stats._distn_infrastructure  import rv_frozen
 
 def Variable(name, dist, shape=[1]):
     arv = SourceRandomVariable(name, dist, shape)
@@ -125,9 +126,13 @@ class SCM(Named):
 
         vs = {}
         for k,v in rvs.items():
-
+            
             if isinstance(v, (int, float, complex)):
                 vs[k] = np.ones(k.shape)*v
+
+            elif isinstance(v, rv_frozen):
+                onlines = v.rvs(size).reshape([size,1])
+                vs[k] = (onlines,)
             else:
                 vs[k] = v
 
@@ -135,7 +140,11 @@ class SCM(Named):
         cache = {}
 
         for k, v in rvs.items():
-            cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
+
+            if type(v) is tuple:
+                cache[k] = v[0]
+            else:
+                cache[k] = np.tile(v.reshape([1]+list(v.shape)),[size]+len(v.shape)*[1])
 
         #results = { n[0] : n[1] for n in
         #          filter(lambda rv: rv[0].observed , self.sample_cached(cache,size).items())  }
