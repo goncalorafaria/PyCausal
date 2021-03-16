@@ -5,8 +5,8 @@ from .distributions import norm
 
 def linear_norm(name):
 
-    Ax = HiddenVariable("A"+name, norm(loc=0,scale=1))
-    Bx = HiddenVariable("B"+name, norm(loc=0,scale=1))
+    Ax = HiddenVariable("A"+name, norm(loc=2,scale=1))
+    Bx = HiddenVariable("B"+name, norm(loc=3,scale=1))
     x = HiddenVariable(name, norm(loc=0,scale=1))
 
     X = Ax*x + Bx
@@ -26,8 +26,8 @@ def pack(model, opaque, X, Y, Z):
 def NormalCollider(opaque=True):
     model = SCM("Simple Normal Collider")
 
-    Axz = HiddenVariable("Axz", norm(loc=0,scale=1))
-    Ayz = HiddenVariable("Ayz", norm(loc=0,scale=1))
+    Axz = HiddenVariable("Axz", norm(loc=1,scale=4))
+    Ayz = HiddenVariable("Ayz", norm(loc=3,scale=4))
 
     X = linear_norm("x") << "X"
     
@@ -40,8 +40,8 @@ def NormalCollider(opaque=True):
 def NormalChain(opaque=True):
     model = SCM("Simple Normal Chain")
 
-    Ayz = HiddenVariable("Ayz", norm(loc=0,scale=1))
-    Axy = HiddenVariable("Axy", norm(loc=0,scale=1))
+    Ayz = HiddenVariable("Ayz", norm(loc=2,scale=4))
+    Axy = HiddenVariable("Axy", norm(loc=5,scale=4))
 
     X = linear_norm("x") << "X"
     
@@ -54,8 +54,8 @@ def NormalChain(opaque=True):
 def NormalFork(opaque=True):
     model = SCM("Simple Normal Fork")
 
-    Axz = HiddenVariable("Axz", norm(loc=0,scale=1))
-    Axy = HiddenVariable("Axy", norm(loc=0,scale=1))
+    Axz = HiddenVariable("Axz", norm(loc=2,scale=4))
+    Axy = HiddenVariable("Axy", norm(loc=0,scale=4))
 
     X = linear_norm("x") << "X"
     
@@ -68,15 +68,15 @@ def NormalFork(opaque=True):
 def NormalMediator(opaque=True):
     model = SCM("Simple Normal Fork")
 
-    Axz = HiddenVariable("Axz", norm(loc=0,scale=1))
-    Axy = HiddenVariable("Axy", norm(loc=0,scale=1))
-    Ayz = HiddenVariable("Ayz", norm(loc=0,scale=1))
+    Axz = HiddenVariable("Axz", norm(loc=1,scale=4))
+    Axy = HiddenVariable("Axy", norm(loc=3,scale=4))
+    Ayz = HiddenVariable("Ayz", norm(loc=0,scale=4))
 
     X = linear_norm("x") << "X"
     
-    Y = Axy*X + linear_norm("y") << "Y"
+    Y = Axy*(X) + linear_norm("y") << "Y"
 
-    Z = Ayz*Y + Axz*X + linear_norm("z") << "Z"
+    Z = Ayz*(Y) + Axz*(X) + linear_norm("z") << "Z"
 
     return pack(model, opaque, X, Y, Z)
 
