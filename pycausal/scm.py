@@ -52,7 +52,7 @@ class SCM(Named):
         return self.name + ":: "+ str(ls)
 
     def mark(self, name, rv):
-        # gives a special status to a variable which is the result of a computation. 
+        # gives a special status to a variable which is the result of a computation.
         assert isinstance(rv,AuxiliaryVariable), " Can't mark an Ancestor Random Variable"
 
         rv._mark()
@@ -126,7 +126,7 @@ class SCM(Named):
 
         vs = {}
         for k,v in rvs.items():
-            
+
             if isinstance(v, (int, float, complex)):
                 vs[k] = np.ones(k.shape)*v
 
@@ -230,9 +230,9 @@ class InterventionalConstruct(Named):
         d = copy(self.given)
         for k,v in ngiven.items():
             d[k] = v
-        
+
         return InterventionalConstruct(name="i:"+self.name, func=self.func, given=d)
-                 
+
 class RandomVariable(Named):
     def __init__(self,
                  name,
@@ -285,7 +285,7 @@ class RandomVariable(Named):
 
     def __rmatmul__(self, rv):
         return matmul(rv,self)
-    
+
     def __pow__(self,rv):# **
         return power(self,rv)
 
@@ -308,8 +308,8 @@ class RandomVariable(Named):
             else :
                 l = l + n.reach()
         return l
-    
-    
+
+
     def conditional_independent_of(self, rv, given, size=500, significance=0.05):
         cache = self.sampling_cached( given, size)
         cache = rv.sampling_cached(cache, size)
@@ -317,7 +317,7 @@ class RandomVariable(Named):
         other = cache[rv]
 
         return independence(me, other, significance)
-    
+
     def independent_of(self, rv, size=500, significance=0.05):
         return self.conditional_independent_of(rv,{},size,significance)
 
@@ -379,7 +379,7 @@ class SourceRandomVariable(RandomVariable):##SourceRandomVariable
                                             observed)
         self.sampler = sampler
         self.shape = list(shape)
-    
+
     def sample(self, size=1):
         shp = [size]+self.shape
         return np.array(self.sampler.rvs(shp).reshape(shp))
@@ -495,7 +495,7 @@ def reduce_prod(nrv, axis=None, keepdims=True):
     f = lambda rv: np.prod(rv, axis=axis, keepdims=keepdims)
     op = UnitaryOperation("prod",f)
     return op.__call__(nrv)
-    
+
 def negative(nrv):
     op = UnitaryOperation("neg",np.negative)
     return op.__call__( nrv)
@@ -508,9 +508,13 @@ def square(nrv):
     op = UnitaryOperation("square",np.square)
     return op.__call__( nrv)
 
+def tanh(nrv):
+    op = UnitaryOperation("tanh",np.tanh)
+    return op.__call__(nrv)
+
 def func(f,name="custom"):
     op = UnitaryOperation(name,f)
-    return lambda rv: op.__call__(rv)    
+    return lambda rv: op.__call__(rv)
 
 def power(nrv, n):
     if isinstance(n, RandomVariable) :
@@ -524,6 +528,10 @@ def power(nrv, n):
 def sin(nrv):
     op = UnitaryOperation("sin",np.sin)
     return op.__call__( nrv)
+
+def sigmoid(nrv):
+    op = UnitaryOperation("sigmoid",lambda x: 1 / (1 + np.exp(-x)))
+    return op.__call__(nrv)
 
 def cos(nrv):
     op = UnitaryOperation("cos",np.cos)

@@ -4,8 +4,8 @@ import random
 
 def linear_norm(name):
 
-    Ax = HiddenVariable("A"+name, norm(loc=2,scale=1))
-    Bx = HiddenVariable("B"+name, norm(loc=3,scale=1))
+    Ax = HiddenVariable("A"+name, norm(loc=2,scale=0.1))
+    Bx = HiddenVariable("B"+name, norm(loc=0,scale=8))
     x = HiddenVariable(name, norm(loc=0,scale=1))
 
     X = Ax*x + Bx
@@ -106,7 +106,7 @@ def RandomLinearNormal(n=3, max_degree=3):
         input_nodes = random.sample(
             list(range(k)),
             min(
-                random.randint(0, max_degree),
+                k+1,#random.randint(0, max_degree),
                 k)
             )
 
@@ -115,7 +115,7 @@ def RandomLinearNormal(n=3, max_degree=3):
         for i in input_nodes:
             adj_matrix[i,k]=1
             rv = frontier[i]
-            scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=3,scale=6))
+            scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=6))
             nc += scale * rv
 
         nc << "X"+str(k)
@@ -137,7 +137,7 @@ def RandomFourierNormal(n=3, max_degree=3):
         input_nodes = random.sample(
             list(range(k)),
             min(
-                random.randint(0, max_degree),
+                k+1,#random.randint(0, max_degree),
                 k)
             )
 
@@ -146,9 +146,9 @@ def RandomFourierNormal(n=3, max_degree=3):
         for i in input_nodes:
             adj_matrix[i,k]=1
             rv = frontier[i]
-            scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=3,scale=6))
-            phi = HiddenVariable("B"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
-            nc += scale * sin( phi * rv )
+            scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
+            phi = HiddenVariable("B"+Nxi.name+":"+rv.name, norm(loc=0,scale=0.1))
+            nc += scale * tanh( phi * rv )
 
         nc << "X"+str(k)
         frontier.append(nc)
