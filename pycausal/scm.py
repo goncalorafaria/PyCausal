@@ -512,6 +512,11 @@ def tanh(nrv):
     op = UnitaryOperation("tanh",np.tanh)
     return op.__call__(nrv)
 
+def relu(nrv):
+    return func(
+        lambda x : np.maximum(0,x)
+        )(nrv)
+
 def func(f,name="custom"):
     op = UnitaryOperation(name,f)
     return lambda rv: op.__call__(rv)

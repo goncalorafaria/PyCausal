@@ -95,64 +95,102 @@ def pack_listing(model, var_list, adj_matrix):
     return model&given, var_list, adj_matrix
 
 
-def RandomLinearNormal(n=3, max_degree=3):
+def RandomLinearNormal(n=3, p=0.5):
     model = SCM("Simple Random Network")
 
     adj_matrix = np.zeros((n,n),dtype=np.int)
-    k = 0
-    frontier=[]
-    while k < n :
-        Nxi = linear_norm("x"+str(k))
-        input_nodes = random.sample(
-            list(range(k)),
-            min(
-                k+1,#random.randint(0, max_degree),
-                k)
-            )
+    k = 1
+    frontier=[linear_norm("x"+str(0))]
+    active = np.zeros(n, dtype=np.bool)
+    active[0]=True
 
+    while k < n :
+        include = np.logical_and(
+                        p > np.random.uniform(size=(n)),
+                        active
+                    )
+
+        Nxi = linear_norm("x"+str(k))
         nc = Nxi
 
-        for i in input_nodes:
-            adj_matrix[i,k]=1
-            rv = frontier[i]
-            scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=6))
-            nc += scale * rv
+        for i in range(include.shape[0]):
+            if include[i]:
+                adj_matrix[i,k]=1
+                rv = frontier[i]
+                scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=6))
+                nc += scale * rv
 
         nc << "X"+str(k)
         frontier.append(nc)
-
         k+=1
+        active[k-1]=True
 
     return pack_listing(model, frontier, adj_matrix)
 
 
-def RandomFourierNormal(n=3, max_degree=3):
+def RandomFourierNormal(n=3, p=0.5):
     model = SCM("Simple Fourier Random Network")
 
     adj_matrix = np.zeros((n,n),dtype=np.int)
-    k = 0
-    frontier=[]
+    k = 1
+    frontier=[linear_norm("x"+str(0))]
+    active = np.zeros(n, dtype=np.bool)
+    active[0]=True
     while k < n :
-        Nxi = linear_norm("x"+str(k))
-        input_nodes = random.sample(
-            list(range(k)),
-            min(
-                k+1,#random.randint(0, max_degree),
-                k)
+        include = np.logical_and(
+                p > np.random.uniform(size=(n)),
+                active
             )
 
+        Nxi = linear_norm("x"+str(k))
         nc = Nxi
 
-        for i in input_nodes:
-            adj_matrix[i,k]=1
-            rv = frontier[i]
-            scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
-            phi = HiddenVariable("B"+Nxi.name+":"+rv.name, norm(loc=0,scale=0.1))
-            nc += scale * tanh( phi * rv )
+        for i in range(include.shape[0]):
+            if include[i]:
+                adj_matrix[i,k]=1
+                rv = frontier[i]
+                scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
+                nc += scale * relu( rv )
 
         nc << "X"+str(k)
         frontier.append(nc)
-
+        
         k+=1
+        active[k-1]=True
 
     return pack_listing(model, frontier, adj_matrix)
+
+def sample_perfect_intervention(
+        adj_matrix, 
+        vars,
+        n:int=1,
+        atomic=False):
+
+    indegree = adj_matrix.sum(0)
+    
+    elegible_nodes = [ i for i in range(indegree.shape[0]) if indegree[i] != 0 ]
+
+    ints = random.sample(
+            elegible_nodes,n)
+
+    def isource():
+        if atomic:
+            return np.random.uniform()*20 - 10
+        else:
+            return norm(
+                loc=np.random.uniform()*20-10, 
+                scale=np.random.uniform()+0.001)
+            
+    int_dist=[(i,isource()) for i in ints ]
+
+    conditioning = { vars[i] : v for i,v in int_dist}
+
+    zs = np.zeros(adj_matrix.shape[0],dtype=np.int)
+
+    for i,_ in int_dist:
+        zs[i]=1
+
+    return conditioning, zs
+
+
+
