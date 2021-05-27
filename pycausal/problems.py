@@ -169,7 +169,7 @@ def sample_perfect_intervention(
     indegree = adj_matrix.sum(0)
     outdegree = adj_matrix.sum(1)
     
-    elegible_nodes = [ i for i in range(indegree.shape[0]) if (indegree[i] and outdegree[i]) != 0 ]
+    elegible_nodes = [ i for i in range(indegree.shape[0]) if (indegree[i]) != 0 ]
 
     ints = random.sample(
             elegible_nodes,n)
