@@ -128,7 +128,8 @@ def RandomLinearNormal(n=3, p=0.5):
     return pack_listing(model, frontier, adj_matrix)
 
 
-def RandomFourierNormal(n=3, p=0.5):
+
+def RandomFourierNormal(n=3, p=0.5, transform=None):
     model = SCM("Simple Fourier Random Network")
 
     adj_matrix = np.zeros((n,n),dtype=np.int)
@@ -143,32 +144,85 @@ def RandomFourierNormal(n=3, p=0.5):
             )
 
         Nxi = linear_norm("x"+str(k))
-        nc = Nxi
+        #nc = Nxi
 
+        inps = []
         for i in range(include.shape[0]):
             if include[i]:
                 adj_matrix[i,k]=1
                 rv = frontier[i]
                 scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
-                nc += scale * relu( rv )
+                inps.append(scale*rv)
+                #nc += scale * relu( rv )
+
+        if len(inps)>0 :
+            nc = relu( sum(inps) ) + Nxi
+        else :
+            nc =  Nxi
+
+        if transform is not None :
+            nc = transform(nc)
+
 
         nc << "X"+str(k)
         frontier.append(nc)
-        
+
         k+=1
         active[k-1]=True
 
     return pack_listing(model, frontier, adj_matrix)
 
+def RandomNonLinearNonNormal(n=3, p=0.5):
+    model = SCM("Simple Fourier Random Network")
+
+    adj_matrix = np.zeros((n,n),dtype=np.int)
+    k = 1
+    frontier=[linear_norm("x"+str(0))]
+    active = np.zeros(n, dtype=np.bool)
+    active[0]=True
+    while k < n :
+        include = np.logical_and(
+                p > np.random.uniform(size=(n)),
+                active
+            )
+
+        Nxi = linear_norm("x"+str(k))
+        #nc = Nxi
+
+        inps = []
+        for i in range(include.shape[0]):
+            if include[i]:
+                adj_matrix[i,k]=1
+                rv = frontier[i]
+                scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
+                inps.append(scale*rv)
+                #nc += scale * relu( rv )
+
+        if len(inps)>0 :
+            nc = relu( sum(inps) )*Nxi
+        else :
+            nc =  Nxi
+
+
+        nc << "X"+str(k)
+        frontier.append(nc)
+
+        k+=1
+        active[k-1]=True
+
+    return pack_listing(model, frontier, adj_matrix)
+
+
+
 def sample_perfect_intervention(
-        adj_matrix, 
+        adj_matrix,
         vars,
         n:int=1,
         atomic=False):
 
     indegree = adj_matrix.sum(0)
     outdegree = adj_matrix.sum(1)
-    
+
     elegible_nodes = [ i for i in range(indegree.shape[0]) if (indegree[i]) != 0 ]
 
     ints = random.sample(
@@ -179,9 +233,9 @@ def sample_perfect_intervention(
             return np.random.uniform()*20 - 10
         else:
             return norm(
-                loc=np.random.uniform()*20-10, 
+                loc=np.random.uniform()*20-10,
                 scale=np.random.uniform()+0.001)
-            
+
     int_dist=[(i,isource()) for i in ints ]
 
     conditioning = { vars[i] : v for i,v in int_dist}
@@ -192,6 +246,3 @@ def sample_perfect_intervention(
         zs[i]=1
 
     return conditioning, zs
-
-
-
