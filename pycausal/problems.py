@@ -1,5 +1,5 @@
 from .scm import *
-from .distributions import norm
+from .distributions import norm, cauchy
 import random
 
 def linear_norm(name):
@@ -129,7 +129,7 @@ def RandomLinearNormal(n=3, p=0.5):
 
 
 
-def RandomFourierNormal(n=3, p=0.5, transform=None):
+def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
     model = SCM("Simple Fourier Random Network")
 
     adj_matrix = np.zeros((n,n),dtype=np.int)
@@ -143,7 +143,10 @@ def RandomFourierNormal(n=3, p=0.5, transform=None):
                 active
             )
 
-        Nxi = linear_norm("x"+str(k))
+        if dist is None:
+            Nxi = linear_norm("x"+str(k))
+        else:
+            Nxi = dist("x"+str(k))
         #nc = Nxi
 
         inps = []
@@ -173,44 +176,18 @@ def RandomFourierNormal(n=3, p=0.5, transform=None):
     return pack_listing(model, frontier, adj_matrix)
 
 def RandomNonLinearNonNormal(n=3, p=0.5):
-    model = SCM("Simple Fourier Random Network")
+    transform = None
 
-    adj_matrix = np.zeros((n,n),dtype=np.int)
-    k = 1
-    frontier=[linear_norm("x"+str(0))]
-    active = np.zeros(n, dtype=np.bool)
-    active[0]=True
-    while k < n :
-        include = np.logical_and(
-                p > np.random.uniform(size=(n)),
-                active
-            )
+    def linear_cauchy(name):
+        Ax = HiddenVariable("A"+name, norm(loc=2,scale=0.1))
+        Bx = HiddenVariable("B"+name, norm(loc=0,scale=8))
+        x = HiddenVariable(name,  cauchy() )
 
-        Nxi = linear_norm("x"+str(k))
-        #nc = Nxi
+        X = Ax*x + Bx
 
-        inps = []
-        for i in range(include.shape[0]):
-            if include[i]:
-                adj_matrix[i,k]=1
-                rv = frontier[i]
-                scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
-                inps.append(scale*rv)
-                #nc += scale * relu( rv )
+        return X
 
-        if len(inps)>0 :
-            nc = relu( sum(inps) )*Nxi
-        else :
-            nc =  Nxi
-
-
-        nc << "X"+str(k)
-        frontier.append(nc)
-
-        k+=1
-        active[k-1]=True
-
-    return pack_listing(model, frontier, adj_matrix)
+    return RandomFourierNormal(n=n, p=p, transform=transform, dist=linear_cauchy)
 
 
 
