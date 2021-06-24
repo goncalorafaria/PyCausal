@@ -1,5 +1,5 @@
 from .scm import *
-from .distributions import norm, cauchy
+from .distributions import norm, halfnorm
 import random
 
 def linear_norm(name):
@@ -128,7 +128,6 @@ def RandomLinearNormal(n=3, p=0.5):
     return pack_listing(model, frontier, adj_matrix)
 
 
-
 def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
     model = SCM("Simple Fourier Random Network")
 
@@ -176,12 +175,12 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
     return pack_listing(model, frontier, adj_matrix)
 
 def RandomNonLinearNonNormal(n=3, p=0.5):
-    transform = None
+    transform = square
 
     def linear_cauchy(name):
         Ax = HiddenVariable("A"+name, norm(loc=2,scale=0.1))
         Bx = HiddenVariable("B"+name, norm(loc=0,scale=8))
-        x = HiddenVariable(name,  cauchy() )
+        x = HiddenVariable(name,  halfnorm() )
 
         X = Ax*x + Bx
 
@@ -200,7 +199,7 @@ def sample_perfect_intervention(
     indegree = adj_matrix.sum(0)
     outdegree = adj_matrix.sum(1)
 
-    elegible_nodes = [ i for i in range(indegree.shape[0]) if (indegree[i]) != 0 ]
+    elegible_nodes = [ i for i in range(indegree.shape[0]) ]
 
     ints = random.sample(
             elegible_nodes,n)
