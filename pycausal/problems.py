@@ -192,11 +192,11 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
 def isource(atomic):
     if atomic:
-        return np.random.uniform()*20 - 10
+        return np.random.uniform()*2 - 1
     else:
         return norm(
-            loc=np.random.uniform()*20-10,
-            scale=np.random.uniform()+0.001)
+            loc=np.random.uniform()*2 - 1,
+            scale=np.random.uniform()*0.5 + 0.001)
 
 
 def sample_perfect_intervention(
