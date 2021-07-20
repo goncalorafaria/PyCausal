@@ -158,7 +158,8 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
                 #nc += scale * relu( rv )
 
         if len(inps)>0 :
-            nc = relu( sum(inps) ) + Nxi
+            x = sum(inps)
+            nc = x * sin(0.2*x) + Nxi
         else :
             nc =  Nxi
 
