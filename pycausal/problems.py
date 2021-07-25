@@ -159,7 +159,7 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
 
         if len(inps)>0 :
             x = sum(inps)
-            nc = x * sin(0.2*x) + Nxi
+            nc = x * relu(x) + Nxi
         else :
             nc =  Nxi
 
@@ -193,10 +193,10 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
 def isource(atomic):
     if atomic:
-        return np.random.uniform()*2 - 1
+        return (np.random.uniform() -0.5)*8
     else:
         return norm(
-            loc=np.random.uniform()*2 - 1,
+            loc=(np.random.uniform()-0.5)*8,
             scale=np.random.uniform()*0.5 + 0.001)
 
 
