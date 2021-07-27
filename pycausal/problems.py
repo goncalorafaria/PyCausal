@@ -3,8 +3,12 @@ from .distributions import norm, halfnorm
 import random
 
 def linear_norm(name):
-
-    Ax = HiddenVariable("A"+name, norm(loc=2,scale=0.1))
+    
+    asignal = np.random.binomial(n=1,p=0.5)*2 - 1
+    avalue = asignal * np.random.uniform(1,2) * 2
+    
+    Ax = HiddenVariable("A"+name, norm(loc=avalue,scale=2))
+    
     Bx = HiddenVariable("B"+name, norm(loc=0,scale=8))
     x = HiddenVariable(name, norm(loc=0,scale=1))
 
@@ -128,7 +132,7 @@ def RandomLinearNormal(n=3, p=0.5):
     return pack_listing(model, frontier, adj_matrix)
 
 
-def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
+def RandomFourierNormal(n=3, p=0.5, transform=relu, dist=None):
     model = SCM("Simple Fourier Random Network")
 
     adj_matrix = np.zeros((n,n),dtype=np.int)
@@ -159,13 +163,13 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
 
         if len(inps)>0 :
             x = sum(inps)
-            nc = x * relu(x) + Nxi
+            
+            if transform is not None :
+                nc = transform(x) + Nxi
+            else:
+                nc = x + Nxi
         else :
-            nc =  Nxi
-
-        if transform is not None :
-            nc = transform(nc)
-
+            nc = Nxi
 
         nc << "X"+str(k)
         frontier.append(nc)
@@ -192,12 +196,15 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
 
 def isource(atomic):
+    signal = np.random.binomial(n=1,p=0.5)*2 - 1
+    value = signal * np.random.uniform(1,2) * 25
+
     if atomic:
-        return (np.random.uniform() -0.5)*8
+        return value 
     else:
         return norm(
-            loc=(np.random.uniform()-0.5)*8,
-            scale=np.random.uniform()*0.5 + 0.001)
+            loc=value,
+            scale=np.random.uniform()*2 + 0.001)
 
 
 def sample_perfect_intervention(
