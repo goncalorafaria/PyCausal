@@ -125,7 +125,10 @@ def RandomLinearNormal(n=3, p=0.5):
 
     return pack_listing(model, frontier, adj_matrix)
 
-def RandomFourierNormal(n=3, p=0.5, transform=relu, dist=None):
+def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
+
+    if transform is None:
+        transform = sigmoid
     model = SCM("Simple Fourier Random Network")
     print(transform)
     adj_matrix = np.zeros((n,n),dtype=np.int)
