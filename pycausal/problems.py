@@ -3,16 +3,12 @@ from .distributions import norm, halfnorm
 import random
 
 def linear_norm(name):
-    
-    asignal = np.random.binomial(n=1,p=0.5)*2 - 1
-    avalue = asignal * np.random.uniform(1,2) * 2
-    
-    Ax = HiddenVariable("A"+name, norm(loc=avalue,scale=2))
-    
-    Bx = HiddenVariable("B"+name, norm(loc=0,scale=8))
+
+    #Ax = HiddenVariable("A"+name, norm(loc=0.0,scale=0.1))
+    Bx = HiddenVariable("B"+name, norm(loc=0,scale=0.3))
     x = HiddenVariable(name, norm(loc=0,scale=1))
 
-    X = Ax*x + Bx
+    X = 0.3*x + Bx
 
     return X
 
@@ -91,13 +87,11 @@ def NormalMediator(opaque=True):
 
     return pack(model, opaque, X, Y, Z, adj_matrix)
 
-
 def pack_listing(model, var_list, adj_matrix):
     pars = [ (k,v) for k,v in model.nodes.items() if "A" == k[0] or "B" == k[0] ]
     given = { v: float((~v)(1)) for k,v in pars }
 
     return model&given, var_list, adj_matrix
-
 
 def RandomLinearNormal(n=3, p=0.5):
     model = SCM("Simple Random Network")
@@ -131,10 +125,9 @@ def RandomLinearNormal(n=3, p=0.5):
 
     return pack_listing(model, frontier, adj_matrix)
 
-
 def RandomFourierNormal(n=3, p=0.5, transform=relu, dist=None):
     model = SCM("Simple Fourier Random Network")
-
+    print(transform)
     adj_matrix = np.zeros((n,n),dtype=np.int)
     k = 1
     frontier=[linear_norm("x"+str(0))]
@@ -150,7 +143,8 @@ def RandomFourierNormal(n=3, p=0.5, transform=relu, dist=None):
             Nxi = linear_norm("x"+str(k))
         else:
             Nxi = dist("x"+str(k))
-        #nc = Nxi
+        
+        Nxi *= 0.05
 
         inps = []
         for i in range(include.shape[0]):
@@ -161,6 +155,7 @@ def RandomFourierNormal(n=3, p=0.5, transform=relu, dist=None):
                 inps.append(scale*rv)
                 #nc += scale * relu( rv )
 
+        #Nxi = Nxi 
         if len(inps)>0 :
             x = sum(inps)
             
@@ -194,17 +189,16 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
     return RandomFourierNormal(n=n, p=p, transform=transform, dist=linear_cauchy)
 
 
-
 def isource(atomic):
     signal = np.random.binomial(n=1,p=0.5)*2 - 1
-    value = signal * np.random.uniform(1,2) * 25
+    value = signal * np.random.uniform(1,2)*1.2
 
     if atomic:
         return value 
     else:
         return norm(
             loc=value,
-            scale=np.random.uniform()*2 + 0.001)
+            scale=0.1)
 
 
 def sample_perfect_intervention(
@@ -231,3 +225,4 @@ def sample_perfect_intervention(
         zs[i]=1
 
     return conditioning, zs
+
