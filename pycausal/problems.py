@@ -171,9 +171,9 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
             else:
                 print(transform)
                 if transform is not None :
-                    nc = mlp(inps,transform) + 0.4*Nxi
+                    nc = mlp(inps,transform) + 0.2*Nxi
                 else:
-                    nc = mlp(inps,lambda x_: x_,layers=1) + 0.4*Nxi
+                    nc = mlp(inps,lambda x_: x_,layers=1) + 0.2*Nxi
         else :
             nc = Nxi
 
