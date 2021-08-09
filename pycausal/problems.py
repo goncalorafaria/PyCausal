@@ -1,14 +1,14 @@
 from .scm import *
-from .distributions import norm, halfnorm
+from .distributions import norm, halfnorm, uniform, bernoulli
 import random
 
 def linear_norm(name):
 
-    #Ax = HiddenVariable("A"+name, norm(loc=0.0,scale=0.1))
+    Ax = HiddenVariable("A"+name, uniform(1,1.4))
     Bx = HiddenVariable("B"+name, norm(loc=0,scale=0.3))
     x = HiddenVariable(name, norm(loc=0,scale=1))
 
-    X = 0.3*x + Bx
+    X = 0.4*x*Ax + Bx
 
     return X
 
@@ -93,6 +93,7 @@ def pack_listing(model, var_list, adj_matrix):
 
     return model&given, var_list, adj_matrix
 
+"""
 def RandomLinearNormal(n=3, p=0.5):
     model = SCM("Simple Random Network")
 
@@ -124,13 +125,16 @@ def RandomLinearNormal(n=3, p=0.5):
         active[k-1]=True
 
     return pack_listing(model, frontier, adj_matrix)
+"""
 
-def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
 
-    if transform is None:
-        transform = sigmoid
-    model = SCM("Simple Fourier Random Network")
-    print(transform)
+def RandomLinearNormal(n=3, p=0.5):
+    return RandomFourierNormal(n=n,p=p,transform=None)
+
+def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
+
+    model = SCM("Simple Random Network")
+
     adj_matrix = np.zeros((n,n),dtype=np.int)
     k = 1
     frontier=[linear_norm("x"+str(0))]
@@ -147,25 +151,29 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
         else:
             Nxi = dist("x"+str(k))
         
-        Nxi *= 0.05
+        #Nxi *= 0.05
 
         inps = []
         for i in range(include.shape[0]):
             if include[i]:
                 adj_matrix[i,k]=1
                 rv = frontier[i]
-                scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
-                inps.append(scale*rv)
+                #scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
+                inps.append(rv)
                 #nc += scale * relu( rv )
 
         #Nxi = Nxi 
         if len(inps)>0 :
-            x = sum(inps)
             
-            if transform is not None :
-                nc = transform(x) + Nxi
+            if nonnormal:
+                inps.append(Nxi)
+                nc = mlp(inps,transform)
             else:
-                nc = x + Nxi
+                print(transform)
+                if transform is not None :
+                    nc = mlp(inps,transform) + 0.4*Nxi
+                else:
+                    nc = mlp(inps,lambda x_: x_,layers=1) + 0.4*Nxi
         else :
             nc = Nxi
 
@@ -176,6 +184,37 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None):
         active[k-1]=True
 
     return pack_listing(model, frontier, adj_matrix)
+
+def mlp(inps,transform,layers=3,hidden=8):
+    print(transform)
+    if layers == 1: 
+
+        j = 1
+        vs = []
+        for v in inps:
+            scale = HiddenVariable("A"+str(j)+":"+"head"+v.name+":"+v.name, uniform(0.25,1))
+            sign = HiddenVariable("As"+str(j)+":"+"head"+v.name+":"+v.name, bernoulli(0.5))
+
+            vs.append((1 - 2*sign)*v*scale)
+
+        return sum(vs)
+    else:
+        os = [ ]
+        for j in range(hidden):
+            
+            vs = []
+            for v in inps:
+                scale = HiddenVariable("A"+str(j)+":"+str(layers)+v.name+":"+v.name, norm(0.0,1.0))
+                vs.append(v*scale)
+            
+            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b"+v.name, uniform(0.05,1.5))
+            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b"+v.name, bernoulli(0.5))
+
+            vs.append((1 - 2*sign))
+
+            os.append( transform(sum(vs)) )
+
+        return mlp(os, transform, layers-1, hidden)
 
 def RandomNonLinearNonNormal(n=3, p=0.5):
     transform = square
@@ -194,7 +233,7 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
 def isource(atomic):
     signal = np.random.binomial(n=1,p=0.5)*2 - 1
-    value = signal * np.random.uniform(1,2)*1.2
+    value = signal * np.random.uniform(1,2)*1.5
 
     if atomic:
         return value 

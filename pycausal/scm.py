@@ -517,6 +517,12 @@ def relu(nrv):
         lambda x : np.maximum(0,x)
         )(nrv)
 
+def leakyrelu(nrv):
+    return func(
+        lambda x : np.where(x > 0, x, x*(-0.25))  
+        )(nrv)
+
+
 def func(f,name="custom"):
     op = UnitaryOperation(name,f)
     return lambda rv: op.__call__(rv)
