@@ -240,6 +240,13 @@ class RandomVariable(Named):
         super(RandomVariable, self).__init__(name)
         self.outbound = set([])
         self.observed = observed
+        self.color = "black"
+
+    def setColor(self, color):
+        self.color = color
+
+    def getColor(self):
+        return self.color
 
     def addChildren(self, chlds):
         self.outbound = self.outbound.union(set(chlds))
@@ -307,6 +314,16 @@ class RandomVariable(Named):
                 l.append(n)
             else :
                 l = l + n.reach()
+        return l
+
+    def getSources(self):
+        l= []
+
+        for n in self.inbound :
+            if isinstance(n,SourceRandomVariable) :
+                l.append(n)
+            else :
+                l = l + n.getSources()
         return l
 
 

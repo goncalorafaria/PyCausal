@@ -10,6 +10,8 @@ def linear_norm(name):
 
     X = 0.4*x*Ax + Bx
 
+    X.setColor("red")
+
     return X
 
 def pack(model, opaque, X, Y, Z, adj_matrix):
@@ -137,7 +139,15 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
 
     adj_matrix = np.zeros((n,n),dtype=np.int)
     k = 1
-    frontier=[linear_norm("x"+str(0))]
+
+    if dist is None:
+        Nxi = linear_norm("x"+str(0))
+    else:
+        Nxi = dist("x"+str(0))
+
+    Nxi << "X"+str(0)
+
+    frontier=[ Nxi ]
     active = np.zeros(n, dtype=np.bool)
     active[0]=True
     while k < n :
@@ -174,6 +184,8 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
                     nc = mlp(inps,transform) + 0.2*Nxi
                 else:
                     nc = mlp(inps,lambda x_: x_,layers=1) + 0.2*Nxi
+
+                nc.setColor("green")
         else :
             nc = Nxi
 
@@ -192,25 +204,35 @@ def mlp(inps,transform,layers=3,hidden=8):
         j = 1
         vs = []
         for v in inps:
-            scale = HiddenVariable("A"+str(j)+":"+"head"+v.name+":"+v.name, uniform(0.25,1))
-            sign = HiddenVariable("As"+str(j)+":"+"head"+v.name+":"+v.name, bernoulli(0.5))
+            scale = HiddenVariable("A"+str(j)+":"+"head"+v.name+":", uniform(0.25,1))
+            sign = HiddenVariable("As"+str(j)+":"+"head"+v.name+":", bernoulli(0.5))
+            
+            pms = (1-2*sign)*scale
+            pms.setColor("pink")
 
-            vs.append((1 - 2*sign)*v*scale)
+            pm = pms*v
+            pm.setColor("purple")
 
-        return sum(vs)
+            vs.append(pm)
+
+        s = sum(vs)
+
+        s.setColor("blue")
+
+        return s
     else:
         os = [ ]
         for j in range(hidden):
             
             vs = []
             for v in inps:
-                scale = HiddenVariable("A"+str(j)+":"+str(layers)+v.name+":"+v.name, norm(0.0,1.0))
+                scale = HiddenVariable("A"+str(j)+":"+str(layers)+v.name+":", norm(0.0,1.0))
                 vs.append(v*scale)
             
-            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b"+v.name, uniform(0.05,1.5))
-            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b"+v.name, bernoulli(0.5))
+            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b", uniform(0.05,1.5))
+            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b", bernoulli(0.5))
 
-            vs.append((1 - 2*sign))
+            vs.append(( 1 - 2*sign)*scale )
 
             os.append( transform(sum(vs)) )
 
@@ -226,6 +248,8 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
         X = Ax*x + Bx
 
+        X.setColor("red")
+
         return X
 
     return RandomFourierNormal(n=n, p=p, transform=transform, dist=linear_cauchy)
@@ -233,7 +257,7 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
 def isource(atomic):
     signal = np.random.binomial(n=1,p=0.5)*2 - 1
-    value = signal * np.random.uniform(1,2)*1.5
+    value = signal * np.random.uniform(1,2)*2.0
 
     if atomic:
         return value 
@@ -243,7 +267,7 @@ def isource(atomic):
             scale=0.1)
 
 
-def sample_perfect_intervention(
+def sample_perfect_intervention_and_targets(
         adj_matrix,
         vars,
         n:int=1,
@@ -267,4 +291,80 @@ def sample_perfect_intervention(
         zs[i]=1
 
     return conditioning, zs
+
+
+
+def get_imperfect_weights(v):
+
+
+    if v.color == "red":
+        return [ v ]
+
+    elif v.color == "blue":
+        
+        l = []
+        for i in v.inbound:
+            if i.color == "purple":
+                for j in get_imperfect_weights(i):
+                    l.append(j)
+
+        return l
+
+    elif v.color == "green":
+        s = [ get_imperfect_weights(i) for i in v.inbound if i.color == "blue"]
+        u = s + [ i.getSources() for i in v.inbound if i.color != "blue"]
+        return [ j for i in u for j in i if j.name[0] != "x" ]
+
+    elif v.color == "purple":
+        s = [ i for i in v.inbound if i.color == "pink"]
+        return get_imperfect_weights(s[0])
+
+    elif v.color == "pink":
+        return v.getSources()
+
+    else:
+        return []
+
+
+def sample_imperfect_intervention_and_targets(
+    vars,
+    n=1):
+
+    d = len(vars)
+    ints = random.sample(
+            list(
+                range(
+                    d
+                    )
+                )
+            ,n)
+
+    rvs = [ j for v in vars[ints] 
+                for j in get_imperfect_weights(v)]
+    
+    given = { v: float((~v)(1)) for v in rvs }
+
+    zs = np.zeros(d,dtype=np.int)
+
+    for i in ints:
+        zs[i]=1
+
+    return given, zs
+
+
+def sample_imperfect_intervention(
+    var):
+
+    rvs = [ j for j in get_imperfect_weights(var)]
+    
+    given = {}
+
+    for v in rvs:
+
+        if v.color == "red":
+            given[v] = isource(atomic=False)
+        else:
+            given[v] = float((~v)(1)*2.5)
+
+    return given
 
