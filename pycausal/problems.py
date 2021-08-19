@@ -4,8 +4,8 @@ import random
 
 def linear_norm(name):
 
-    Ax = HiddenVariable("A"+name, uniform(1,1.4))
-    Bx = HiddenVariable("B"+name, norm(loc=0,scale=0.3))
+    Ax = HiddenVariable("Aln"+name, uniform(1,1.4))
+    Bx = HiddenVariable("Bln"+name, norm(loc=0,scale=0.3))
     x = HiddenVariable(name, norm(loc=0,scale=1))
 
     X = 0.4*x*Ax + Bx
@@ -90,8 +90,9 @@ def NormalMediator(opaque=True):
     return pack(model, opaque, X, Y, Z, adj_matrix)
 
 def pack_listing(model, var_list, adj_matrix):
-    pars = [ (k,v) for k,v in model.nodes.items() if "A" == k[0] or "B" == k[0] ]
-    given = { v: float((~v)(1)) for k,v in pars }
+    pars = [ model.nodes[k] for k in model.ancestors if "A" == k[0] or "B" == k[0] ]
+    given = { v: float((~v)(1)) for v in pars }
+    print(given)
 
     return model&given, var_list, adj_matrix
 
@@ -129,7 +130,6 @@ def RandomLinearNormal(n=3, p=0.5):
     return pack_listing(model, frontier, adj_matrix)
 """
 
-
 def RandomLinearNormal(n=3, p=0.5):
     return RandomFourierNormal(n=n,p=p,transform=None)
 
@@ -152,25 +152,22 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
     active[0]=True
     while k < n :
         include = np.logical_and(
-                p > np.random.uniform(size=(n)),
-                active
-            )
+            p > np.random.uniform(size=(n)),
+            active
+        )
 
         if dist is None:
             Nxi = linear_norm("x"+str(k))
         else:
             Nxi = dist("x"+str(k))
         
-        #Nxi *= 0.05
-
+        print(include)
         inps = []
         for i in range(include.shape[0]):
             if include[i]:
                 adj_matrix[i,k]=1
                 rv = frontier[i]
-                #scale = HiddenVariable("A"+Nxi.name+":"+rv.name, norm(loc=0,scale=2))
                 inps.append(rv)
-                #nc += scale * relu( rv )
 
         #Nxi = Nxi 
         if len(inps)>0 :
@@ -181,9 +178,9 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
             else:
                 print(transform)
                 if transform is not None :
-                    nc = mlp(inps,transform) + 0.2*Nxi
+                    nc = mlp(inps,transform,prefix=str(k)) + 0.2*Nxi
                 else:
-                    nc = mlp(inps,lambda x_: x_,layers=1) + 0.2*Nxi
+                    nc = mlp(inps,lambda x_: x_,layers=1,prefix=str(k)) + 0.2*Nxi
 
                 nc.setColor("green")
         else :
@@ -192,22 +189,29 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
         nc << "X"+str(k)
         frontier.append(nc)
 
+        active[k]=True
+
         k+=1
-        active[k-1]=True
+        
+
+        #import pdb; pdb.set_trace()
 
     return pack_listing(model, frontier, adj_matrix)
 
-def mlp(inps,transform,layers=3,hidden=8):
+def mlp(inps,transform,layers=3,hidden=8, prefix=""):
     print(transform)
     if layers == 1: 
 
         j = 1
         vs = []
         for v in inps:
-            scale = HiddenVariable("A"+str(j)+":"+"head"+v.name+":", uniform(0.25,1))
-            sign = HiddenVariable("As"+str(j)+":"+"head"+v.name+":", bernoulli(0.5))
-            
+            scale = HiddenVariable("A"+str(j)+":"+"head"+v.name+":1"+prefix, uniform(0.25,1))
+            sign = HiddenVariable("As"+str(j)+":"+"head"+v.name+":1"+prefix, bernoulli(0.5))
+            print(scale.name)
+            print(sign.name)
+
             pms = (1-2*sign)*scale
+            #pms = scale
             pms.setColor("pink")
 
             pm = pms*v
@@ -229,8 +233,8 @@ def mlp(inps,transform,layers=3,hidden=8):
                 scale = HiddenVariable("A"+str(j)+":"+str(layers)+v.name+":", norm(0.0,1.0))
                 vs.append(v*scale)
             
-            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b", uniform(0.05,1.5))
-            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b", bernoulli(0.5))
+            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b"+":"+str(layers), uniform(0.05,1.5))
+            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b"+":"+str(layers), bernoulli(0.5))
 
             vs.append(( 1 - 2*sign)*scale )
 
@@ -253,6 +257,7 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
         return X
 
     return RandomFourierNormal(n=n, p=p, transform=transform, dist=linear_cauchy)
+
 
 
 def isource(atomic):
