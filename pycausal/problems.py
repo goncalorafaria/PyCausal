@@ -240,7 +240,7 @@ def mlp(inps,transform,layers=3,hidden=8, prefix=""):
 
             os.append( transform(sum(vs)) )
 
-        return mlp(os, transform, layers-1, hidden)
+        return mlp(os, transform, layers-1, hidden, prefix=prefix)
 
 def RandomNonLinearNonNormal(n=3, p=0.5):
     transform = square
