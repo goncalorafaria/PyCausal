@@ -262,14 +262,14 @@ def RandomNonLinearNonNormal(n=3, p=0.5):
 
 def isource(atomic):
     signal = np.random.binomial(n=1,p=0.5)*2 - 1
-    value = signal * np.random.uniform(1,2)*2.0
+    value = signal * np.random.uniform(1,2)*4.0
 
     if atomic:
         return value 
     else:
         return norm(
             loc=value,
-            scale=0.1)
+            scale=0.2)
 
 
 def sample_perfect_intervention_and_targets(
@@ -343,9 +343,8 @@ def sample_imperfect_intervention_and_targets(
                     )
                 )
             ,n)
-
-    rvs = [ j for v in vars[ints] 
-                for j in get_imperfect_weights(v)]
+                
+    rvs = [ j for it in ints for j in get_imperfect_weights(vars[it])]
     
     given = { v: float((~v)(1)) for v in rvs }
 
