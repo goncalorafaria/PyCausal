@@ -120,7 +120,7 @@ def pack_listing(model, var_list, adj_matrix):
     print( [ k.name[:10] for k in a.difference(b) ] )
     print( [ k.name[:10] for k in b.difference(a) ] )
 
-    import pdb; pdb.set_trace()
+   # import pdb; pdb.set_trace()
 
     return model&given, var_list, adj_matrix
 
