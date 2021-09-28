@@ -120,7 +120,7 @@ def pack_listing(model, var_list, adj_matrix):
     print( [ k.name[:10] for k in a.difference(b) ] )
     print( [ k.name[:10] for k in b.difference(a) ] )
 
-    #import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
     return model&given, var_list, adj_matrix
 
@@ -203,7 +203,7 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
             if nonnormal:
                 print("**"*40)
                 inps.append(Nxi)
-                nc = mlp(inps,transform)
+                nc = mlp(inps,transform,prefix=str(k))
             else:
                 print(transform)
                 if transform is not None :
