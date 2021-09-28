@@ -2,7 +2,12 @@ from .scm import *
 from .distributions import norm, halfnorm, uniform, bernoulli
 import random
 
+
+
+spawn=[]
+
 def linear_norm(name):
+    global spawn
 
     Ax = HiddenVariable("Aln"+name, uniform(1,1.4))
     Bx = HiddenVariable("Bln"+name, norm(loc=0,scale=0.3))
@@ -11,6 +16,9 @@ def linear_norm(name):
     X = 0.4*x*Ax + Bx
 
     X.setColor("red")
+
+    spawn.append(Ax)
+    spawn.append(Bx)
 
     return X
 
@@ -91,8 +99,28 @@ def NormalMediator(opaque=True):
 
 def pack_listing(model, var_list, adj_matrix):
     pars = [ model.nodes[k] for k in model.ancestors if "A" == k[0] or "B" == k[0] ]
+    
     given = { v: float((~v)(1)) for v in pars }
-    print(given)
+    #print(given)
+
+    print("len a %d " % len(given.keys()))
+    print("len b %d " % len(spawn))
+
+    a= set(given.keys())
+    b = set(spawn)
+
+    print("len diff a %d " % len(a))
+    print("len diff b %d " % len(b))
+
+    print()
+
+    print("len a-b %d " % len(a.difference(b)))
+    print("len b-a %d " % len(b.difference(a)))
+
+    print( [ k.name[:10] for k in a.difference(b) ] )
+    print( [ k.name[:10] for k in b.difference(a) ] )
+
+    #import pdb; pdb.set_trace()
 
     return model&given, var_list, adj_matrix
 
@@ -173,6 +201,7 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
         if len(inps)>0 :
             
             if nonnormal:
+                print("**"*40)
                 inps.append(Nxi)
                 nc = mlp(inps,transform)
             else:
@@ -200,6 +229,8 @@ def RandomFourierNormal(n=3, p=0.5, transform=None, dist=None, nonnormal=False):
 
 def mlp(inps,transform,layers=3,hidden=8, prefix=""):
     print(transform)
+    global spawn
+
     if layers == 1: 
 
         j = 1
@@ -207,8 +238,9 @@ def mlp(inps,transform,layers=3,hidden=8, prefix=""):
         for v in inps:
             scale = HiddenVariable("A"+str(j)+":"+"head"+v.name+":1"+prefix, uniform(0.25,1))
             sign = HiddenVariable("As"+str(j)+":"+"head"+v.name+":1"+prefix, bernoulli(0.5))
-            print(scale.name)
-            print(sign.name)
+            
+            spawn.append(scale)
+            spawn.append(sign)
 
             pms = (1-2*sign)*scale
             #pms = scale
@@ -230,15 +262,21 @@ def mlp(inps,transform,layers=3,hidden=8, prefix=""):
             
             vs = []
             for v in inps:
-                scale = HiddenVariable("A"+str(j)+":"+str(layers)+v.name+":", norm(0.0,1.0))
+                scale = HiddenVariable("A"+str(j)+":"+str(layers)+v.name+":"+prefix, norm(0.0,1.0))
+
+                spawn.append(scale)
+
                 vs.append(v*scale)
             
-            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b"+":"+str(layers), uniform(0.05,1.5))
-            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b"+":"+str(layers), bernoulli(0.5))
+            scale = HiddenVariable("B"+str(j)+":"+"head"+v.name+":b"+":"+str(layers)+prefix, uniform(0.05,1.5))
+            sign = HiddenVariable("Bs"+str(j)+":"+"head"+v.name+":b"+":"+str(layers)+prefix, bernoulli(0.5))
 
             vs.append(( 1 - 2*sign)*scale )
 
             os.append( transform(sum(vs)) )
+
+            spawn.append(scale)
+            spawn.append(sign)
 
         return mlp(os, transform, layers-1, hidden, prefix=prefix)
 
